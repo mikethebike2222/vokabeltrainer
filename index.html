@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<title>Vokabeltrainer – Fokusmodus (Mobile)</title>
+
+<!-- Mobile & iOS PWA -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b3d8f">
+
+<!-- PWA: Manifest & Icons -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<style>
+  :root{
+    --card-max-w: 94vw;
+    --card-max-h: 62svh;
+    --card-font:  clamp(22px, 6vw, 36px);
+    --tile-font:  clamp(18px, 4.8vw, 30px);
+    --radius: 16px;
+  }
+  @supports not (height: 1svh) { :root { --card-max-h: 62vh; } }
+  *{ box-sizing:border-box; }
+  html, body { height: 100%; }
+  body{
+    margin:0; background:#f5f7fb; display:flex; flex-direction:column; align-items:center;
+    padding:16px; transition: font-family .25s, background .25s; -webkit-tap-highlight-color: transparent;
+  }
+  body.learn-mode{ font-family:"Georgia","Times New Roman",serif; background:#f7f4ee; }
+  body.test-mode{  font-family:Arial, Helvetica, sans-serif; background:#f5f7fb; }
+  body.focus-mode{ padding-top:10px; }
+  header{ width:min(100%,1100px); display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:center; margin-bottom:8px; }
+  h1{ margin:0; font-size:20px; }
+  .badge{ padding:6px 10px; border-radius:999px; font-size:13px; }
+  #modeIndicator{ background:#e7eefc; color:#1b3d8f; } 
+  body.learn-mode #modeIndicator{ background:#efe6d5; color:#6f4d1d; }
+  #directionBadge{ background:#f1e8ff; color:#5a2ea6; }
+  #boxBadge{ background:#ffe9ee; color:#8f1b2b; }
+  body.focus-mode h1, body.focus-mode #boxBadge{ display:none; }
+  .progress{ width:min(100%,1100px); background:#eef2f7; border-radius:999px; height:10px; overflow:hidden; margin:6px 0 12px; }
+  .progress>div{ height:100%; width:0%; background:linear-gradient(90deg,#61c454,#1aa34a); transition: width .25s ease; }
+  .progress-label{ width:min(100%,1100px); display:flex; justify-content:space-between; font-size:12px; margin-top:2px; opacity:.8; }
+  body.focus-mode .progress-label{ display:none; }
+  .stage{ width:min(100%,1100px); display:grid; grid-template-columns: 1fr; gap:14px; }
+  .card{
+    width: min(var(--card-max-w), 720px);
+    height: var(--card-max-h);
+    font-size: var(--card-font);
+    margin: 10px auto; border-radius: var(--radius); background:#fff; 
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    user-select:none; transition: transform .2s; word-break: keep-all; overflow-wrap: anywhere; padding: 22px;
+  }
+  .card:hover{ transform: translateY(-2px); }
+  .pair{ width: min(var(--card-max-w), 720px); display:grid; grid-template-columns:1fr 1fr; gap:12px; margin: 0 auto; }
+  .tile{
+    border-radius: var(--radius); box-shadow:0 8px 20px rgba(0,0,0,.08); padding:18px; 
+    min-height: calc(var(--card-max-h) / 2.4);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size: var(--tile-font); word-break: keep-all; overflow-wrap: anywhere;
+  }
+  .tile.es{ background:#fff7e9; } .tile.de{ background:#eaf4ff; }
+  .controls{ 
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:6px 0 8px;
+    position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: transparent; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  button{
+    padding: 14px 18px; font-size: 16px; border:0; border-radius:12px; cursor:pointer; 
+    background:#1b3d8f; color:#fff; transition: transform .1s, opacity .15s, background .2s;
+    min-height: 44px; min-width: 44px; touch-action: manipulation;
+  }
+  button:hover{ transform: translateY(-1px); }
+  .secondary{ background:#6b7280; } .success{ background:#176427; } .danger{ background:#8f1b2b; } .ghost{ background:#e5e7eb; color:#111827; } .pill{ border-radius:999px; }
+  .only-test{ display:inline-flex; } body.learn-mode .only-test{ display:none; }
+  .drawer-toggle{ position:fixed; bottom:18px; right:18px; z-index:30; }
+  .drawer{ position:fixed; top:0; right:-380px; width:360px; height:100vh; background:#fff; box-shadow:-16px 0 32px rgba(0,0,0,.08); z-index:25; transition:right .25s ease; padding:14px; overflow:auto; }
+  .drawer.open{ right:0; }
+  .drawer h3{ margin:10px 0 8px; font-size:16px; }
+  .panel{ background:#fff; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); padding:12px; margin-bottom:12px; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input[type="text"], select{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; }
+  .table-wrap{ max-height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; }
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th,td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
+  thead th{ position:sticky; top:0; background:#f9fbff; z-index:1; }
+  .tools-hint{ opacity:.8; }
+  @media (max-width: 520px){
+    header { grid-template-columns: 1fr auto; gap:6px; }
+    #boxBadge { display:none; }
+    .progress-label { display:none; }
+    .drawer { width: 92vw; right: -92vw; }
+    .drawer.open { right: 0; }
+  }
+  body.focus-mode .card { font-size: clamp(24px, 7vw, 40px); }
+  body.focus-mode .tile { font-size: clamp(20px, 5vw, 34px); }
+</style>
+</head>
+<body class="learn-mode">
+
+<header>
+  <h1>Vokabeltrainer</h1>
+  <div id="modeIndicator" class="badge">Modus: Lernen</div>
+  <div id="directionBadge" class="badge">Richtung: ES → DE</div>
+  <div id="boxBadge" class="badge">Box: –</div>
+</header>
+
+<div class="progress"><div id="progressBar"></div></div>
+<div class="progress-label">
+  <div id="progressText">Fortschritt: 0 / 0 (0%)</div>
+  <div id="completionText" class="tools-hint"></div>
+</div>
+
+<div class="controls" style="margin-top:4px;">
+  <button id="toggleModeBtn" class="secondary pill">m Modus</button>
+  <button id="toggleDirectionBtn" class="pill">d Richtung</button>
+  <button id="focusBtn" class="ghost pill">f Fokus</button>
+</div>
+
+<div class="stage">
+  <main>
+    <div id="testCard" class="card" style="display:none;"></div>
+    <div id="learnPair" class="pair">
+      <div id="tileEs" class="tile es">—</div>
+      <div id="tileDe" class="tile de">—</div>
+    </div>
+
+    <div class="controls">
+      <button id="dontKnowBtn" class="danger only-test">1 ❌</button>
+      <button id="knowBtn" class="success only-test">2 ✅</button>
+      <button id="nextBtn" class="ghost">␣ / → Nächste</button>
+      <button id="editBtn" class="pill">✏️ Bearbeiten</button>
+      <button id="deleteBtn" class="pill danger">🗑️ Löschen</button>
+    </div>
+
+    <div id="metaInfo" style="text-align:center; opacity:.75; font-size:13px;">
+      Box: <span id="metaBox">–</span> • Falsch gezählt: <span id="metaWrong">0</span>
+    </div>
+  </main>
+</div>
+
+<button class="drawer-toggle pill" id="drawerToggle">☰ Werkzeuge</button>
+<aside class="drawer" id="drawer">
+  <div class="row" style="justify-content:space-between;">
+    <h3>Werkzeuge & Daten</h3>
+    <button id="drawerClose" class="ghost pill">Schließen</button>
+  </div>
+  <div class="panel">
+    <h3>Übung wählen</h3>
+    <div class="row">
+      <select id="deckSelect"></select>
+      <button id="deckAddBtn" class="pill">➕</button>
+      <button id="deckRenameBtn" class="pill secondary">✏️</button>
+      <button id="deckDeleteBtn" class="pill danger">🗑️</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>CSV Import (ES,DE)</h3>
+    <input type="file" id="csvFile" accept=".csv">
+    <div style="font-size:12px;opacity:.7">UTF-8 / Win-1252 / ISO-8859-1; Komma/Semikolon</div>
+  </div>
+  <div class="panel">
+    <h3>Neue Karte</h3>
+    <div class="row">
+      <input type="text" id="spanish" placeholder="Spanisch">
+      <input type="text" id="german" placeholder="Deutsch">
+      <button id="addCardBtn">Hinzufügen</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Statistik</h3>
+    <table id="statsTable">
+      <tr><th>Box</th><th>Karten</th><th>Fällig</th><th>Nächstes</th></tr>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Alle Karten</h3>
+    <div class="row" style="margin-bottom:8px;">
+      <input type="text" id="searchInput" placeholder="Suchen … (ES/DE)">
+      <select id="listSortSelect">
+        <option value="boxdesc">Box ↓</option>
+        <option value="wrongdesc">Schwierigkeit ↓</option>
+        <option value="alphaes">Spanisch A–Z</option>
+        <option value="alphade">Deutsch A–Z</option>
+      </select>
+      <label style="font-size:12px;"><input type="checkbox" id="showReserveChk"> Reserve</label>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Spanisch</th><th>Deutsch</th><th>Box</th><th>Falsch</th><th>Zuletzt</th><th>Aktion</th></tr></thead>
+        <tbody id="cardsTable"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Zurücksetzen</h3>
+    <div class="row">
+      <button id="resetProgressBtn" class="secondary">Nur Fortschritt</button>
+      <button id="resetAllBtn" class="danger">Alles löschen</button>
+    </div>
+  </div>
+  <div class="panel" style="font-size:12px; opacity:.8">
+    <div>Shortcuts: <b>Leertaste/→</b> Nächste • <b>1</b> Falsch • <b>2</b> Richtig • <b>m</b> Modus • <b>d</b> Richtung • <b>f</b> Fokus</div>
+  </div>
+</aside>
+
+<script>
+function setVH(){ const vh = window.innerHeight * 0.01; document.documentElement.style.setProperty('--vh', vh + 'px'); }
+window.addEventListener('resize', setVH); setVH();
+
+const LS_DECKS="leitnerDecks";
+function uuid(){ return Math.random().toString(36).slice(2,10); }
+let decks=JSON.parse(localStorage.getItem(LS_DECKS)||"[]");
+if(decks.length===0){ const id=uuid(); decks=[{id,name:"Spanisch ES→DE"}]; localStorage.setItem(LS_DECKS,JSON.stringify(decks)); }
+let currentDeckId=localStorage.getItem("leitnerCurrentDeck")||decks[0].id;
+function deckKey(k){ return `${k}_${currentDeckId}`; }
+
+const boxLimits=[20,15,10,8,5], boxIntervals=[1,2,4,9,14], minBox1Size=10;
+
+let activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
+let reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[];
+let learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
+let mode="lernen";
+let direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
+let testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
+
+function ensureSeed(){ 
+  if(activeCards.length===0&&reserveCards.length===0&&learnedCards.length===0){ 
+    activeCards=[{es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0},{es:"adiós",de:"auf Wiedersehen",box:1,lastSeen:null,wrong:0},{es:"gracias",de:"danke",box:1,lastSeen:null,wrong:0},{es:"por favor",de:"bitte",box:1,lastSeen:null,wrong:0},{es:"sí",de:"ja",box:1,lastSeen:null,wrong:0},{es:"no",de:"nein",box:1,lastSeen:null,wrong:0}]; 
+    saveData(); 
+  } 
+}
+[activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; }));
+ensureSeed();
+
+const body=document.body;
+const modeIndicator=document.getElementById("modeIndicator");
+const directionBadge=document.getElementById("directionBadge");
+const boxBadge=document.getElementById("boxBadge");
+const progressBar=document.getElementById("progressBar"), progressText=document.getElementById("progressText"), completionText=document.getElementById("completionText");
+const testCardDiv=document.getElementById("testCard"), learnPairDiv=document.getElementById("learnPair"), tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe");
+const knowBtn=document.getElementById("knowBtn"), dontKnowBtn=document.getElementById("dontKnowBtn"), nextBtn=document.getElementById("nextBtn");
+const toggleModeBtn=document.getElementById("toggleModeBtn"), toggleDirectionBtn=document.getElementById("toggleDirectionBtn"), focusBtn=document.getElementById("focusBtn");
+const editBtn=document.getElementById("editBtn"), deleteBtn=document.getElementById("deleteBtn");
+const statsTable=document.getElementById("statsTable");
+const csvFileInput=document.getElementById("csvFile"), addCardBtn=document.getElementById("addCardBtn");
+const resetProgressBtn=document.getElementById("resetProgressBtn"), resetAllBtn=document.getElementById("resetAllBtn");
+const deckSelect=document.getElementById("deckSelect"), deckAddBtn=document.getElementById("deckAddBtn"), deckRenameBtn=document.getElementById("deckRenameBtn"), deckDeleteBtn=document.getElementById("deckDeleteBtn");
+const cardsTable=document.getElementById("cardsTable"), searchInput=document.getElementById("searchInput"), listSortSelect=document.getElementById("listSortSelect"), showReserveChk=document.getElementById("showReserveChk");
+const drawer=document.getElementById("drawer"), drawerToggle=document.getElementById("drawerToggle"), drawerClose=document.getElementById("drawerClose");
+const metaBox=document.getElementById("metaBox"), metaWrong=document.getElementById("metaWrong");
+
+function saveData(){ 
+  localStorage.setItem(deckKey("leitnerActive"),JSON.stringify(activeCards)); 
+  localStorage.setItem(deckKey("leitnerReserve"),JSON.stringify(reserveCards)); 
+  localStorage.setItem(deckKey("leitnerLearned"),JSON.stringify(learnedCards)); 
+  localStorage.setItem(deckKey("leitnerDirection"),direction); 
+  localStorage.setItem(deckKey("leitnerTestOrder"),testOrder); 
+}
+function saveDecks(){ localStorage.setItem(LS_DECKS,JSON.stringify(decks)); localStorage.setItem("leitnerCurrentDeck",currentDeckId); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+function daysBetween(a,b){ return Math.floor((a-b)/(1000*60*60*24)); }
+function getDueCards(){ 
+  const today=new Date(); 
+  return activeCards.filter(card=> card.lastSeen===null || daysBetween(today,new Date(card.lastSeen))>=boxIntervals[card.box-1]); 
+}
+function updateBoxBadgesForCurrent(){ 
+  const v=currentCard?currentCard.box:"–"; boxBadge.textContent=`Box: ${v}`; metaBox.textContent=v; metaWrong.textContent=currentCard?(currentCard.wrong||0):0; 
+}
+function autoFillBox1(){ 
+  const b1=activeCards.filter(c=>c.box===1).length; 
+  if(b1<minBox1Size&&reserveCards.length>0){ 
+    const need=Math.max(0,minBox1Size-b1); const add=reserveCards.splice(0,need); 
+    add.forEach(c=>{ c.box=1; c.lastSeen=null; if(typeof c.wrong!=="number") c.wrong=0; }); 
+    activeCards.push(...add); saveData(); 
+  } 
+}
+function totals(){ const total=activeCards.length+reserveCards.length+learnedCards.length; const learned=learnedCards.length; return {total, learned}; }
+function updateProgress(){ 
+  const {total,learned}=totals(); 
+  const pct= total? Math.round((learned/total)*100):100; 
+  progressBar.style.width=pct+"%"; 
+  progressText.textContent=`Fortschritt: ${learned} / ${total} (${pct}%)`; 
+  completionText.textContent=(activeCards.length===0&&reserveCards.length===0&&total>0)?"Übung abgeschlossen 🎉":""; 
+}
+function updateStats(){ 
+  statsTable.innerHTML=`<tr><th>Box</th><th>Karten</th><th>Fällig</th><th>Nächstes</th></tr>`; 
+  const dueAll=getDueCards(); 
+  for(let b=1;b<=5;b++){ 
+    const inBox=activeCards.filter(c=>c.box===b); 
+    const due=dueAll.filter(c=>c.box===b).length; 
+    let next="-"; 
+    if(inBox.length){ 
+      const ds=inBox.map(c=>{ if(!c.lastSeen) return new Date(0); const d=new Date(c.lastSeen); d.setDate(d.getDate()+boxIntervals[b-1]); return d; }); 
+      const soonest=new Date(Math.min(...ds.map(d=>d.getTime()))); 
+      next=soonest.getTime()>0?soonest.toLocaleDateString():"heute"; 
+    } 
+    statsTable.insertAdjacentHTML("beforeend",`<tr><td>${b}</td><td>${inBox.length}</td><td>${due}</td><td>${next}</td></tr>`); 
+  } 
+}
+function sortByDifficultyDesc(arr){ return arr.sort((a,b)=>(b.wrong||0)-(a.wrong||0)); }
+
+function pickNextCard(){
+  autoFillBox1();
+  let pool = (mode==="lernen") ? activeCards.filter(c=>c.box===1) : getDueCards();
+  if(pool.length===0){ setEmptyView(mode==="lernen" ? "Keine Karte in Box 1. Import/Reserve nutzen." : (activeCards.length===0?"Alle Karten gelernt 🎉":"Nichts fällig 🎉")); return null; }
+  if(mode==="prüfen" && testOrder==="hardest"){ pool = sortByDifficultyDesc(pool); return pool[0]; }
+  shuffle(pool); return pool[0];
+}
+function setEmptyView(msg){ if(mode==="lernen"){ tileEs.textContent="—"; tileDe.textContent=msg; } else { testCardDiv.textContent=msg; } updateBoxBadgesForCurrent(); }
+
+function buildTable(){
+  const q=searchInput.value.trim().toLowerCase(); const incl=showReserveChk.checked;
+  let rows=activeCards.map(c=>({...c,_w:"aktiv"})); if(incl) rows=rows.concat(reserveCards.map(c=>({...c,_w:"reserve"})));
+  if(q) rows=rows.filter(r=>(r.es||"").toLowerCase().includes(q)||(r.de||"").toLowerCase().includes(q));
+  const sort=listSortSelect.value;
+  rows.sort((a,b)=>{
+    if(sort==="wrongdesc") return (b.wrong||0)-(a.wrong||0);
+    if(sort==="alphaes") return (a.es||"").localeCompare(b.es||"");
+    if(sort==="alphade") return (a.de||"").localeCompare(b.de||"");
+    if(b.box!==a.box) return (b.box||0)-(a.box||0);
+    return (b.wrong||0)-(a.wrong||0);
+  });
+  const tb=cardsTable; tb.innerHTML="";
+  for(const r of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${esc(r.es)}</td><td>${esc(r.de)}</td><td>${r.box||"-"}${r._w==="reserve"?"*":""}</td><td>${r.wrong||0}</td><td>${r.lastSeen?new Date(r.lastSeen).toLocaleDateString():"-"}</td><td><button class="ghost" data-e>Edit</button><button class="danger" data-d>Del</button></td>`;
+    tr.querySelector("[data-e]").onclick=()=>{ const es=prompt("Spanisch:",r.es); if(es===null)return; const de=prompt("Deutsch:",r.de); if(de===null)return; if(!es.trim()||!de.trim())return;
+      const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);
+      if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){ alert("Karte mit dieser spanischen Seite existiert bereits."); return; }
+      r.es=es.trim(); r.de=de.trim(); saveData(); render(); };
+    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); render(); };
+    tb.appendChild(tr);
+  }
+}
+function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+
+let currentCard=null, showSourceSide=true;
+function render(){
+  updateProgress(); updateStats();
+  body.classList.toggle("test-mode", mode==="prüfen");
+  body.classList.toggle("learn-mode", mode==="lernen");
+  modeIndicator.textContent = "Modus: " + (mode==="prüfen"?"Prüfen":"Lernen");
+  directionBadge.textContent = (direction==="es2de")?"Richtung: ES → DE":"Richtung: DE → ES";
+
+  currentCard=pickNextCard(); showSourceSide=true;
+  if(!currentCard){ buildTable(); return; }
+
+  if(mode==="lernen"){ learnPairDiv.style.display="grid"; testCardDiv.style.display="none"; tileEs.textContent=currentCard.es; tileDe.textContent=currentCard.de; }
+  else{ learnPairDiv.style.display="none"; testCardDiv.style.display="flex"; testCardDiv.textContent=(direction==="es2de")?currentCard.es:currentCard.de; }
+  updateBoxBadgesForCurrent();
+  buildTable();
+}
+
+testCardDiv.addEventListener("click",()=>{ if(mode!=="prüfen"||!currentCard)return; showSourceSide=!showSourceSide; testCardDiv.textContent=(direction==="es2de")?(showSourceSide?currentCard.es:currentCard.de):(showSourceSide?currentCard.de:currentCard.es); });
+
+function haptic(){ try{ navigator.vibrate && navigator.vibrate(15); }catch(e){} }
+knowBtn.onclick=()=>{ if(mode!=="prüfen"||!currentCard)return;
+  haptic();
+  if(currentCard.box===5){ const i=activeCards.indexOf(currentCard); if(i>=0) activeCards.splice(i,1); learnedCards.push({...currentCard, learnedAt:new Date().toISOString()}); saveData(); render(); return; }
+  if(currentCard.box<5){ const next=currentCard.box+1; const nCount=activeCards.filter(c=>c.box===next).length; if(nCount<boxLimits[next-1]) currentCard.box=next; }
+  currentCard.lastSeen=new Date().toISOString(); saveData(); render();
+};
+dontKnowBtn.onclick=()=>{ if(mode!=="prüfen"||!currentCard)return; haptic(); currentCard.box=1; currentCard.wrong=(currentCard.wrong||0)+1; currentCard.lastSeen=new Date().toISOString(); saveData(); render(); };
+nextBtn.onclick=()=>{ haptic(); render(); };
+toggleModeBtn.onclick=()=>{ mode=(mode==="lernen")?"prüfen":"lernen"; render(); };
+toggleDirectionBtn.onclick=()=>{ direction=(direction==="es2de")?"de2es":"es2de"; saveData(); render(); };
+focusBtn.onclick=()=>{ body.classList.toggle("focus-mode"); drawer.classList.remove("open"); };
+
+(function addSwipe(){
+  const areaTest = document.getElementById("testCard");
+  const areaLearn = document.getElementById("learnPair");
+  let startX=0, startY=0, dx=0, dy=0, touching=false;
+  const THRESH_X = 45, THRESH_Y = 45;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
+  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
+  function onEnd(context){
+    if(!touching) return; touching=false;
+    if (context==="test" && mode==="prüfen") {
+      if (dx > THRESH_X) { knowBtn.click(); return; } 
+      else if (dx < -THRESH_X) { dontKnowBtn.click(); return; }
+    }
+    if (Math.abs(dy) < THRESH_Y && Math.abs(dx) < THRESH_X) { nextBtn.click(); return; }
+    if (dy < -THRESH_Y) { nextBtn.click(); return; }
+  }
+  ["touchstart","mousedown"].forEach(ev=> areaTest.addEventListener(ev, onStart, {passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> areaTest.addEventListener(ev, onMove, {passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> areaTest.addEventListener(ev, ()=>onEnd("test")));
+  ["touchstart","mousedown"].forEach(ev=> areaLearn.addEventListener(ev, onStart, {passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> areaLearn.addEventListener(ev, onMove, {passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> areaLearn.addEventListener(ev, ()=>onEnd("learn")));
+})();
+
+function openDrawer(){ drawer.classList.add("open"); body.classList.remove("focus-mode"); }
+function closeDrawer(){ drawer.classList.remove("open"); }
+drawerToggle.onclick=openDrawer; drawerClose.onclick=closeDrawer;
+
+csvFileInput.addEventListener("change",(ev)=>{ const file=ev.target.files[0]; if(!file)return; const rdr=new FileReader(); rdr.onload=e=>{ const buf=e.target.result; const decs=[new TextDecoder("utf-8"),new TextDecoder("windows-1252"),new TextDecoder("iso-8859-1")]; let text="", used="utf-8";
+  for(const d of decs){ const t=d.decode(buf); const bad=(t.match(/\uFFFD/g)||[]).length; if(bad===0){ text=t; used=d.encoding||used; break; } if(!text) text=t; }
+  const lines=text.split(/\r?\n/); let imported=0; for(const raw of lines){ if(!raw.trim())continue; const sep=(raw.includes(";")&&(!raw.includes(",")||raw.indexOf(";")<raw.indexOf(",")))?";":","; const parts=raw.split(sep); if(parts.length<2)continue; let es=parts[0]?.trim().replace(/^"(.*)"$/,'$1'); let de=parts[1]?.trim().replace(/^"(.*)"$/,'$1'); if(!es||!de)continue;
+    const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es); if(!exists){ reserveCards.push({es,de,box:1,lastSeen:null,wrong:0}); imported++; } }
+  saveData(); alert(`Import: ${imported} Einträge (Encoding: ${used})`); render(); }; rdr.readAsArrayBuffer(file); });
+
+addCardBtn.onclick=()=>{ const es=document.getElementById("spanish").value.trim(); const de=document.getElementById("german").value.trim(); if(!es||!de)return;
+  const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es); if(exists){ alert("Schon vorhanden."); return; }
+  activeCards.push({es,de,box:1,lastSeen:null,wrong:0}); document.getElementById("spanish").value=""; document.getElementById("german").value="";
+  saveData(); render();
+};
+
+resetProgressBtn.onclick=()=>{ if(!confirm("Nur Lernfortschritt zurücksetzen?"))return; activeCards=activeCards.map(c=>({...c,box:1,lastSeen:null})); saveData(); render(); alert("Fortschritt zurückgesetzt."); };
+resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?"))return;
+  localStorage.removeItem(deckKey("leitnerActive")); localStorage.removeItem(deckKey("leitnerReserve")); localStorage.removeItem(deckKey("leitnerLearned")); localStorage.removeItem(deckKey("leitnerDirection")); localStorage.removeItem(deckKey("leitnerTestOrder"));
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); render(); alert("Neu initialisiert."); };
+
+function rebuildDeckSelect(){ deckSelect.innerHTML=""; decks.forEach(d=>{ const o=document.createElement("option"); o.value=d.id; o.textContent=d.name+(d.id===currentDeckId?" (aktiv)":""); deckSelect.appendChild(o); }); deckSelect.value=currentDeckId; }
+rebuildDeckSelect();
+deckSelect.onchange=()=>{ currentDeckId=deckSelect.value; saveDecks();
+  activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[]; reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[]; learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
+  direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de"; testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
+  [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; })); ensureSeed(); shuffle(activeCards); render(); };
+deckAddBtn.onclick=()=>{ const name=prompt("Name der neuen Übung:"); if(!name)return; const id=uuid(); decks.push({id,name}); saveDecks(); currentDeckId=id; rebuildDeckSelect(); activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); render(); };
+deckRenameBtn.onclick=()=>{ const deck=decks.find(d=>d.id===currentDeckId); if(!deck)return; const name=prompt("Neuer Name:",deck.name); if(!name)return; deck.name=name; saveDecks(); rebuildDeckSelect(); };
+deckDeleteBtn.onclick=()=>{ if(decks.length<=1){ alert("Mindestens eine Übung muss bleiben."); return; } const deck=decks.find(d=>d.id===currentDeckId); if(!deck||!confirm(`„${deck.name}“ löschen?`))return;
+  localStorage.removeItem(deckKey("leitnerActive")); localStorage.removeItem(deckKey("leitnerReserve")); localStorage.removeItem(deckKey("leitnerLearned")); localStorage.removeItem(deckKey("leitnerDirection")); localStorage.removeItem(deckKey("leitnerTestOrder"));
+  decks=decks.filter(d=>d.id!==currentDeckId); currentDeckId=decks[0].id; saveDecks(); rebuildDeckSelect(); deckSelect.onchange(); };
+
+searchInput.oninput=buildTable; listSortSelect.onchange=buildTable; showReserveChk.onchange=buildTable;
+
+document.addEventListener("keydown",(e)=>{
+  if(e.target.matches("input,textarea")) return;
+  if(e.key===" "||e.key==="ArrowRight"){ e.preventDefault(); nextBtn.click(); }
+  else if(e.key==="1"){ e.preventDefault(); dontKnowBtn.click(); }
+  else if(e.key==="2"){ e.preventDefault(); knowBtn.click(); }
+  else if(e.key.toLowerCase()==="m"){ e.preventDefault(); toggleModeBtn.click(); }
+  else if(e.key.toLowerCase()==="d"){ e.preventDefault(); toggleDirectionBtn.click(); }
+  else if(e.key.toLowerCase()==="f"){ e.preventDefault(); focusBtn.click(); }
+});
+
+/* PWA: Service Worker registrieren */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+  });
+}
+
+shuffle(activeCards); render();
+</script>
+</body>
+</html>
