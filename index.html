@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Vokabeltrainer – Mobile (Zwei-Karten-Prüfung)</title>
+<title>Vokabeltrainer – Mobile (Landscape + Gesten)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -51,11 +51,9 @@
   button{ padding:14px 18px; font-size:16px; border:0; border-radius:12px; cursor:pointer; min-height:44px; min-width:44px; background:#1b3d8f; color:#fff; }
   .secondary{ background:#6b7280; } .success{ background:#176427; } .danger{ background:#8f1b2b; } .ghost{ background:#e5e7eb; color:#111827; } .pill{ border-radius:999px; }
 
-  /* Prüfmodus-Aktionen unter den zwei Kacheln */
   #testActions{ display:none; gap:10px; justify-content:center; }
   #testActions button{ min-width:120px; }
 
-  /* Schublade */
   .drawer-toggle{ position:fixed; bottom:18px; right:18px; z-index:30; }
   .drawer{ position:fixed; top:0; right:-380px; width:360px; height:100vh; background:#fff; box-shadow:-16px 0 32px rgba(0,0,0,.08); z-index:25; transition:right .25s; padding:14px; overflow:auto; }
   .drawer.open{ right:0; }
@@ -66,14 +64,23 @@
   table{ width:100%; border-collapse:collapse; font-size:14px; } th,td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
   thead th{ position:sticky; top:0; background:#f9fbff; z-index:1; }
 
-  /* Querformat: Vollbild-Karten, UI minimal */
+  /* Querformat: fast Fullscreen mit kleinem Rand + Safe-Area */
   @media (orientation:landscape){
     header, .progress, .progress-label, .drawer-toggle, .controls.global, .drawer{ display:none !important; }
-    .stage{ width:100%; }
-    .card, .pair{ width:96vw; }
-    #landscapeBadge{ display:flex; }
+    body { padding: 0; }
+    .card, .pair{
+      width: calc(100vw - 4vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+      height: calc(100vh - 4vw - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      max-width:none; max-height:none; margin: 2vw;
+    }
+    .card{ font-size: clamp(28px, 7vw, 50px); }
+    .tile{ font-size: clamp(24px, 5.5vw, 44px); }
+    #landscapeBadge{ 
+      display:flex; position:fixed; 
+      left: calc(12px + env(safe-area-inset-left)); 
+      bottom: calc(12px + env(safe-area-inset-bottom));
+    }
   }
-  /* Portrait-Feinschliff */
   @media (max-width:520px){
     header{ grid-template-columns:1fr auto; gap:6px; }
     .progress-label{ display:none; }
@@ -81,13 +88,11 @@
     .drawer.open{ right:0; }
   }
 
-  /* Kleiner Kreis-Badge im Querformat */
   #landscapeBadge{
-    display:none; position:fixed; left:12px; bottom:12px; z-index:40;
-    width:42px; height:42px; border-radius:50%; background:#111827; color:#fff; align-items:center; justify-content:center; font-size:13px; opacity:.85;
+    display:none; width:42px; height:42px; border-radius:50%; background:#111827; color:#fff;
+    align-items:center; justify-content:center; font-size:13px; opacity:.85; z-index:40;
   }
 
-  /* Inline Edit Panel */
   #editPanel{ display:none; padding:10px; gap:8px; justify-content:center; }
   #editPanel input{ min-width:140px; }
 </style>
@@ -115,13 +120,13 @@
 
 <div class="stage">
   <main>
-    <!-- LERNMODUS: zwei Kacheln (nur Box 1) -->
+    <!-- LERNMODUS -->
     <div id="learnPair" class="pair">
       <div id="tileEs" class="tile es">—</div>
       <div id="tileDe" class="tile de">—</div>
     </div>
 
-    <!-- PRÜFMODUS: zwei Kacheln mit Phasenlogik -->
+    <!-- PRÜFMODUS -->
     <div id="testPair" class="pair" style="display:none;">
       <div id="testLeft" class="tile es">—</div>
       <div id="testRight" class="tile de">—</div>
@@ -224,7 +229,7 @@
   </div>
 
   <div class="panel" style="font-size:12px; opacity:.8">
-    <div>Hinweis: Lernmodus zeigt nur Karten aus <b>Box 1</b>. Prüfmodus nutzt <b>alle fälligen</b> Karten.</div>
+    <div>Hinweis: Lernmodus zeigt nur <b>Box 1</b>. Prüfmodus nutzt <b>alle fälligen</b> Karten.</div>
   </div>
 </aside>
 
@@ -240,10 +245,10 @@ if(decks.length===0){ const id=uuid(); decks=[{id,name:"Spanisch ES→DE"}]; loc
 let currentDeckId=localStorage.getItem("leitnerCurrentDeck")||decks[0].id;
 function deckKey(k){ return `${k}_${currentDeckId}`; }
 
-/* === Leitner-Config (angepasst) === */
-const boxLimits=[20,20,20,20,20];          // ≈20 Karten pro Box
+/* === Leitner-Config === */
+const boxLimits=[20,20,20,20,20];
 const boxIntervals=[1,2,4,9,14];
-const minBox1Size=20;                       // Auto-Auffüllen bis 20
+const minBox1Size=20;
 
 /* === State === */
 let activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
@@ -253,13 +258,17 @@ let mode="lernen";                          // "lernen" | "prüfen"
 let direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de"; // es2de | de2es
 let testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
 
+/* Lernmodus-Navigation (Next/Prev) */
+let learnOrder=[];       // Array mit Referenzen (IDs) oder Indizes
+let learnIndex=0;        // Zeiger im Lernmodus
+
 function ensureSeed(){
   if(activeCards.length===0&&reserveCards.length===0&&learnedCards.length===0){
     activeCards=[{es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0},{es:"adiós",de:"auf Wiedersehen",box:1,lastSeen:null,wrong:0},{es:"gracias",de:"danke",box:1,lastSeen:null,wrong:0},{es:"por favor",de:"bitte",box:1,lastSeen:null,wrong:0},{es:"sí",de:"ja",box:1,lastSeen:null,wrong:0},{es:"no",de:"nein",box:1,lastSeen:null,wrong:0}];
     saveData();
   }
 }
-[activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; }));
+[activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); }));
 ensureSeed();
 
 /* === DOM === */
@@ -269,7 +278,6 @@ const boxBadge=document.getElementById("boxBadge");
 const progressBar=document.getElementById("progressBar"), progressText=document.getElementById("progressText"), completionText=document.getElementById("completionText");
 
 const learnPair=document.getElementById("learnPair"), tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe");
-
 const testPair=document.getElementById("testPair"), testLeft=document.getElementById("testLeft"), testRight=document.getElementById("testRight");
 const testActions=document.getElementById("testActions"), btnRight=document.getElementById("btnRight"), btnWrong=document.getElementById("btnWrong");
 
@@ -290,6 +298,7 @@ const metaBox=document.getElementById("metaBox"), metaWrong=document.getElementB
 const landscapeBadge=document.getElementById("landscapeBadge");
 
 /* === Utils === */
+function cryptoRandom(){ return Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10); }
 function saveData(){
   localStorage.setItem(deckKey("leitnerActive"),JSON.stringify(activeCards));
   localStorage.setItem(deckKey("leitnerReserve"),JSON.stringify(reserveCards));
@@ -312,7 +321,7 @@ function autoFillBox1(){
   if(b1<minBox1Size && reserveCards.length>0){
     const need=Math.max(0,minBox1Size-b1);
     const add=reserveCards.splice(0,need);
-    add.forEach(c=>{ c.box=1; c.lastSeen=null; if(typeof c.wrong!=="number") c.wrong=0; });
+    add.forEach(c=>{ c.box=1; c.lastSeen=null; if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); });
     activeCards.push(...add); saveData();
   }
 }
@@ -341,17 +350,58 @@ function updateStats(){
 }
 function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
 
+/* === Lernmodus: Reihenfolge & Navigation === */
+function rebuildLearnOrder(){
+  const pool = activeCards.filter(c=>c.box===1);
+  learnOrder = pool.map(c=>c.id);
+  shuffle(learnOrder);
+  learnIndex = 0;
+}
+function getLearnCard(){
+  if(learnOrder.length===0) rebuildLearnOrder();
+  const idsInBox1 = new Set(activeCards.filter(c=>c.box===1).map(c=>c.id));
+  // Entferne IDs, die nicht mehr existieren / nicht mehr Box1 sind
+  learnOrder = learnOrder.filter(id => idsInBox1.has(id));
+  if(learnOrder.length===0){ autoFillBox1(); rebuildLearnOrder(); }
+  if(learnOrder.length===0) return null;
+  // clamp index
+  if(learnIndex<0) learnIndex=0;
+  if(learnIndex>=learnOrder.length) learnIndex=learnOrder.length-1;
+  const id = learnOrder[learnIndex];
+  return activeCards.find(c=>c.id===id) || null;
+}
+function nextLearn(){
+  learnIndex++;
+  if(learnIndex>=learnOrder.length){ // am Ende: neu auffüllen/neu mischen
+    autoFillBox1();
+    rebuildLearnOrder();
+  }
+  renderLearn();
+}
+function prevLearn(){
+  learnIndex = Math.max(0, learnIndex-1);
+  renderLearn();
+}
+function renderLearn(){
+  const card = getLearnCard();
+  currentCard = card;
+  if(!card){
+    tileEs.textContent="—"; tileDe.textContent="Keine Karte in Box 1.";
+    updateMeta(); return;
+  }
+  tileEs.textContent=card.es; tileDe.textContent=card.de;
+  updateMeta();
+}
+
 /* === Auswahl & Render === */
 let currentCard=null;
-let testPhase="prompt"; // "prompt" (nur Ausgang) -> "answer" (Ziel + Buttons sichtbar)
+let testPhase="prompt"; // "prompt" -> "answer"
 
-function pickNextCard(){
+function pickNextTestCard(){
   autoFillBox1();
-  let pool;
-  if(mode==="lernen"){ pool = activeCards.filter(c=>c.box===1); } // lernen nur Box 1
-  else{ pool = getDueCards(); }
+  let pool = getDueCards();
   if(pool.length===0) return null;
-  if(testOrder==="hardest" && mode==="prüfen"){ pool.sort((a,b)=>(b.wrong||0)-(a.wrong||0)); return pool[0]; }
+  if(testOrder==="hardest"){ pool.sort((a,b)=>(b.wrong||0)-(a.wrong||0)); return pool[0]; }
   shuffle(pool); return pool[0];
 }
 
@@ -364,25 +414,21 @@ function render(){
   toggleModeBtn.textContent = mode==="prüfen" ? "Prüfen" : "Lernen";
   toggleDirectionBtn.textContent = direction==="es2de" ? "ES → DE" : "DE → ES";
 
-  currentCard = pickNextCard();
-  if(!currentCard){
-    learnPair.style.display = (mode==="lernen") ? "grid" : "none";
-    testPair.style.display  = (mode==="prüfen") ? "grid" : "none";
-    if(mode==="lernen"){ tileEs.textContent="—"; tileDe.textContent="Keine Karte in Box 1."; }
-    else{ testLeft.textContent="—"; testRight.textContent="Nichts fällig."; testActions.style.display="none"; }
-    updateMeta(); return;
-  }
-
   if(mode==="lernen"){
     learnPair.style.display="grid"; testPair.style.display="none"; testActions.style.display="none";
-    tileEs.textContent=currentCard.es; tileDe.textContent=currentCard.de;
+    renderLearn();
   }else{
     learnPair.style.display="none"; testPair.style.display="grid"; testPhase="prompt"; testActions.style.display="none";
+    currentCard = pickNextTestCard();
+    if(!currentCard){
+      testLeft.textContent="—"; testRight.textContent="Nichts fällig.";
+      updateMeta(); return;
+    }
     const src = (direction==="es2de") ? currentCard.es : currentCard.de;
     testLeft.textContent = src;
     testRight.textContent = "—";
+    updateMeta();
   }
-  updateMeta();
 }
 function updateMeta(){
   const b = currentCard ? currentCard.box : "–";
@@ -392,7 +438,7 @@ function updateMeta(){
   document.getElementById("landscapeBadge").textContent = "B" + b;
 }
 
-/* === Prüf-Flow Interaktion === */
+/* === Prüf-Flow === */
 function revealAnswer(){
   if(mode!=="prüfen" || !currentCard || testPhase!=="prompt") return;
   const tgt = (direction==="es2de") ? currentCard.de : currentCard.es;
@@ -403,11 +449,9 @@ function revealAnswer(){
 testPair.addEventListener("click", revealAnswer);
 
 function haptic(){ try{ navigator.vibrate && navigator.vibrate(15); }catch(e){} }
-
 btnRight.addEventListener("click", ()=>{
   if(mode!=="prüfen" || !currentCard) return;
   haptic();
-  // Aufstieg + Learned
   if(currentCard.box===5){
     const i=activeCards.indexOf(currentCard); if(i>=0) activeCards.splice(i,1);
     learnedCards.push({...currentCard, learnedAt:new Date().toISOString()});
@@ -419,18 +463,16 @@ btnRight.addEventListener("click", ()=>{
   }
   saveData(); render();
 });
-
 btnWrong.addEventListener("click", ()=>{
   if(mode!=="prüfen" || !currentCard) return;
   haptic();
-  // Abstieg (mindestens Box 1)
   currentCard.box = Math.max(1, currentCard.box - 1);
   currentCard.wrong = (currentCard.wrong||0) + 1;
   currentCard.lastSeen = new Date().toISOString();
   saveData(); render();
 });
 
-/* === Bearbeiten (Portrait) === */
+/* === Bearbeiten === */
 editBtn.addEventListener("click", ()=>{
   if(!currentCard) return;
   editPanel.style.display = (editPanel.style.display==="none"||editPanel.style.display==="") ? "flex" : "none";
@@ -450,12 +492,10 @@ saveEditBtn.addEventListener("click", ()=>{
 });
 
 /* === Drawer === */
-function openDrawer(){ drawer.classList.add("open"); }
-function closeDrawer(){ drawer.classList.remove("open"); }
 document.getElementById("drawerToggle").onclick=()=>{ drawer.classList.toggle("open"); };
-drawerClose.onclick=closeDrawer;
+drawerClose.onclick=()=>drawer.classList.remove("open");
 
-/* === Richtung (im Werkzeug) === */
+/* === Richtung === */
 toggleDirectionBtn.addEventListener("click", ()=>{
   direction = (direction==="es2de") ? "de2es" : "es2de";
   saveData(); render();
@@ -478,7 +518,7 @@ csvFileInput.addEventListener("change",(ev)=>{
       let es=parts[0]?.trim().replace(/^"(.*)"$/,'$1'); let de=parts[1]?.trim().replace(/^"(.*)"$/,'$1');
       if(!es||!de) continue;
       const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
-      if(!exists){ reserveCards.push({es,de,box:1,lastSeen:null,wrong:0}); imported++; }
+      if(!exists){ reserveCards.push({id:cryptoRandom(), es,de,box:1,lastSeen:null,wrong:0}); imported++; }
     }
     saveData(); alert(`Import: ${imported} Einträge (Encoding: ${used})`); render();
   };
@@ -492,24 +532,24 @@ addCardBtn.onclick=()=>{
   if(!es||!de) return;
   const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
   if(exists){ alert("Schon vorhanden."); return; }
-  activeCards.push({es,de,box:1,lastSeen:null,wrong:0});
+  activeCards.push({id:cryptoRandom(), es,de,box:1,lastSeen:null,wrong:0});
   document.getElementById("spanish").value=""; document.getElementById("german").value="";
-  saveData(); render();
+  saveData(); rebuildLearnOrder(); render();
 };
 
-/* === Löschen (im Werkzeug) === */
+/* === Löschen === */
 deleteBtn.onclick=()=>{
   if(!currentCard) return;
   if(!confirm("Möchtest du die aktive Karte wirklich löschen?")) return;
-  const i=activeCards.indexOf(currentCard);
-  if(i>=0) activeCards.splice(i,1);
-  saveData(); render();
+  const idx=activeCards.indexOf(currentCard);
+  if(idx>=0) activeCards.splice(idx,1);
+  saveData(); rebuildLearnOrder(); render();
 };
 
 /* === Reset === */
 resetProgressBtn.onclick=()=>{ if(!confirm("Nur Lernfortschritt zurücksetzen?")) return;
   activeCards=activeCards.map(c=>({...c, box:1, lastSeen:null}));
-  saveData(); render(); alert("Fortschritt zurückgesetzt.");
+  saveData(); rebuildLearnOrder(); render(); alert("Fortschritt zurückgesetzt.");
 };
 resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) return;
   localStorage.removeItem(deckKey("leitnerActive"));
@@ -517,7 +557,7 @@ resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) ret
   localStorage.removeItem(deckKey("leitnerLearned"));
   localStorage.removeItem(deckKey("leitnerDirection"));
   localStorage.removeItem(deckKey("leitnerTestOrder"));
-  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); render(); alert("Neu initialisiert.");
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); rebuildLearnOrder(); render(); alert("Neu initialisiert.");
 };
 
 /* === Decks === */
@@ -535,14 +575,13 @@ deckSelect.onchange=()=>{
   learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
   direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
   testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
-  [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; }));
-  ensureSeed(); shuffle(activeCards); render();
+  [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); }));
+  ensureSeed(); rebuildLearnOrder(); render();
 };
-
 deckAddBtn.onclick=()=>{ const name=prompt("Name der neuen Übung:"); if(!name) return;
   const id=uuid(); decks.push({id,name}); saveDecks();
   currentDeckId=id; rebuildDeckSelect();
-  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); render();
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); rebuildLearnOrder(); render();
 };
 deckRenameBtn.onclick=()=>{ const deck=decks.find(d=>d.id===currentDeckId); if(!deck) return;
   const name=prompt("Neuer Name:", deck.name); if(!name) return;
@@ -580,8 +619,8 @@ function buildTable(){
     tr.querySelector("[data-e]").onclick=()=>{ const es=prompt("Spanisch:",r.es); if(es===null)return; const de=prompt("Deutsch:",r.de); if(de===null)return; if(!es.trim()||!de.trim())return;
       const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);
       if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){ alert("Karte mit dieser spanischen Seite existiert bereits."); return; }
-      r.es=es.trim(); r.de=de.trim(); saveData(); render(); };
-    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); render(); };
+      r.es=es.trim(); r.de=de.trim(); saveData(); rebuildLearnOrder(); render(); };
+    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); rebuildLearnOrder(); render(); };
     tb.appendChild(tr);
   }
 }
@@ -590,10 +629,52 @@ searchInput.oninput=buildTable; listSortSelect.onchange=buildTable; showReserveC
 /* === Modus-Toggle === */
 toggleModeBtn.onclick=()=>{ mode = (mode==="lernen") ? "prüfen" : "lernen"; editPanel.style.display="none"; render(); };
 
-/* === Start === */
-shuffle(activeCards); render();
+/* === Gesten: Lernmodus (links=next, rechts=prev, tippen=next) === */
+(function learnGestures(){
+  const area = learnPair;
+  let startX=0, startY=0, dx=0, dy=0, touching=false;
+  const THRESH_X = 45, THRESH_Y = 60; // etwas großzügig gegen Scroll
+  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
+  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
+  function onEnd(){
+    if(!touching) return; touching=false;
+    if(Math.abs(dy) > THRESH_Y) return; // vertikale Geste ignorieren
+    if(dx < -THRESH_X){ nextLearn(); return; }     // links wischen
+    if(dx >  THRESH_X){ prevLearn(); return; }     // rechts wischen
+    // Tap
+    nextLearn();
+  }
+  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev, onStart, {passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev, onMove, {passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev, onEnd));
+})();
 
-/* === PWA SW === */
+/* === Prüfmodus: Tippen zeigt Antwort (Buttons), Gesten optional wie gehabt === */
+(function testOptionalGestures(){
+  const area = testPair;
+  let startX=0, startY=0, dx=0, dy=0, touching=false;
+  const THRESH_X = 55, THRESH_Y = 80;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
+  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
+  function onEnd(){
+    if(!touching) return; touching=false;
+    if(mode!=="prüfen") return;
+    if(testPhase==="prompt"){ revealAnswer(); return; }
+    // in der Answer-Phase optional: Wischen rechts=✅, links=❌
+    if(Math.abs(dy) > THRESH_Y) return;
+    if(dx > THRESH_X){ btnRight.click(); return; }
+    if(dx < -THRESH_X){ btnWrong.click(); return; }
+  }
+  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev, onStart, {passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev, onMove, {passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev, onEnd));
+})();
+
+/* === Start === */
+function initIDs(){ [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(!c.id) c.id=cryptoRandom(); })); }
+initIDs(); autoFillBox1(); rebuildLearnOrder(); render();
+
+/* === PWA SW (falls vorhanden) === */
 if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js').catch(console.error)); }
 </script>
 </body>
