@@ -2,12 +2,12 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Vokabeltrainer – Mobile (Landscape + Gesten)</title>
+<title>Vokabeltrainer – Mobile (Blocks, Freies Üben, Gamification)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1b3d8f">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest?v=5">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -25,13 +25,19 @@
   body.learn-mode{ font-family:Georgia, "Times New Roman", serif; background:#f7f4ee; }
   body.test-mode{ font-family:Arial, Helvetica, sans-serif; background:#f5f7fb; }
 
-  header{ width:min(100%,1100px); display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center; margin-bottom:8px; }
+  header{ width:min(100%,1100px); display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:center; margin-bottom:8px; }
   h1{ margin:0; font-size:20px; }
   .badge{ padding:6px 10px; border-radius:999px; font-size:13px; }
   #modeIndicator{ background:#e7eefc; color:#1b3d8f; } body.learn-mode #modeIndicator{ background:#efe6d5; color:#6f4d1d; }
   #boxBadge{ background:#ffe9ee; color:#8f1b2b; }
+  #directionBadge{ background:#f1e8ff; color:#5a2ea6; }
 
-  .progress{ width:min(100%,1100px); background:#eef2f7; border-radius:999px; height:10px; overflow:hidden; margin:6px 0 12px; }
+  /* Gamification Topbar */
+  .gbar{ width:min(100%,1100px); display:flex; gap:10px; align-items:center; margin:6px 0 10px; flex-wrap:wrap; }
+  .chip{ background:#111827; color:#fff; border-radius:999px; padding:6px 10px; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .chip span{ font-weight:700; }
+
+  .progress{ width:min(100%,1100px); background:#eef2f7; border-radius:999px; height:10px; overflow:hidden; margin:4px 0 10px; }
   .progress>div{ height:100%; width:0%; background:linear-gradient(90deg,#61c454,#1aa34a); transition:width .25s; }
   .progress-label{ width:min(100%,1100px); display:flex; justify-content:space-between; font-size:12px; opacity:.8; }
 
@@ -59,14 +65,19 @@
   .drawer.open{ right:0; }
   .panel{ background:#fff; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); padding:12px; margin-bottom:12px; }
   .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  input[type="text"], select{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; }
+  input[type="text"], select, textarea{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; width:100%; }
+  textarea{ min-height:90px; resize:vertical; }
+
   .table-wrap{ max-height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; }
   table{ width:100%; border-collapse:collapse; font-size:14px; } th,td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
   thead th{ position:sticky; top:0; background:#f9fbff; z-index:1; }
 
+  .toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:#111827; color:#fff; padding:10px 14px; border-radius:999px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:60; }
+  .toast.show{ opacity:0.98; transform:translateX(-50%) translateY(-4px); }
+
   /* Querformat: fast Fullscreen mit kleinem Rand + Safe-Area */
   @media (orientation:landscape){
-    header, .progress, .progress-label, .drawer-toggle, .controls.global, .drawer{ display:none !important; }
+    header, .progress, .progress-label, .drawer-toggle, .controls.global, .drawer, .gbar { display:none !important; }
     body { padding: 0; }
     .card, .pair{
       width: calc(100vw - 4vw - env(safe-area-inset-left) - env(safe-area-inset-right));
@@ -82,7 +93,7 @@
     }
   }
   @media (max-width:520px){
-    header{ grid-template-columns:1fr auto; gap:6px; }
+    header{ grid-template-columns: 1fr auto auto; gap:6px; }
     .progress-label{ display:none; }
     .drawer{ width:92vw; right:-92vw; }
     .drawer.open{ right:0; }
@@ -93,8 +104,8 @@
     align-items:center; justify-content:center; font-size:13px; opacity:.85; z-index:40;
   }
 
-  #editPanel{ display:none; padding:10px; gap:8px; justify-content:center; }
-  #editPanel input{ min-width:140px; }
+  /* Edit-Panel im Portrait: große Textareas */
+  #editPanel{ display:none; padding:10px; gap:8px; justify-content:center; flex-direction:column; }
 </style>
 </head>
 <body class="learn-mode">
@@ -102,8 +113,17 @@
 <header>
   <h1>Vokabeltrainer</h1>
   <div id="modeIndicator" class="badge">Lernen</div>
+  <div id="directionBadge" class="badge">ES → DE</div>
   <div id="boxBadge" class="badge">Box: –</div>
 </header>
+
+<!-- Gamification Topbar -->
+<div class="gbar">
+  <div class="chip">⭐ Punkte: <span id="pointsChip">0</span></div>
+  <div class="chip">🎚️ Level: <span id="levelChip">1</span></div>
+  <div class="chip">🔥 Streak: <span id="streakChip">0</span>d</div>
+  <div class="chip" id="comboChip" style="display:none;">⚡ Combo: <span id="comboVal">0</span></div>
+</div>
 
 <div class="progress"><div id="progressBar"></div></div>
 <div class="progress-label">
@@ -126,7 +146,7 @@
       <div id="tileDe" class="tile de">—</div>
     </div>
 
-    <!-- PRÜFMODUS -->
+    <!-- PRÜFMODUS (Zwei-Karten-Flow) -->
     <div id="testPair" class="pair" style="display:none;">
       <div id="testLeft" class="tile es">—</div>
       <div id="testRight" class="tile de">—</div>
@@ -136,12 +156,14 @@
       <button id="btnRight" class="success">✅ Richtig</button>
     </div>
 
-    <!-- Inline-Edit (Portrait) -->
+    <!-- Inline-Editor -->
     <div id="editPanel" class="controls">
-      <input id="editEs" type="text" placeholder="Spanisch">
-      <input id="editDe" type="text" placeholder="Deutsch">
-      <button id="saveEditBtn" class="success">Speichern</button>
-      <button id="cancelEditBtn" class="secondary">Abbrechen</button>
+      <textarea id="editEs" placeholder="Spanisch – hier bearbeiten …"></textarea>
+      <textarea id="editDe" placeholder="Deutsch – hier bearbeiten …"></textarea>
+      <div class="row" style="justify-content:center;">
+        <button id="saveEditBtn" class="success">Speichern</button>
+        <button id="cancelEditBtn" class="secondary">Abbrechen</button>
+      </div>
     </div>
 
     <div id="metaInfo" style="text-align:center; opacity:.75; font-size:13px;">
@@ -178,9 +200,18 @@
   </div>
 
   <div class="panel">
+    <h3>Freies Üben</h3>
+    <div class="row">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="freePracticeChk"> Fälligkeit ignorieren (Box 2–5 + gelernte Box‑1)
+      </label>
+    </div>
+  </div>
+
+  <div class="panel">
     <h3>CSV Import (ES,DE)</h3>
     <input type="file" id="csvFile" accept=".csv">
-    <div style="font-size:12px;opacity:.7">UTF-8 / Win-1252 / ISO-8859-1; Komma/Semikolon</div>
+    <div style="font-size:12px;opacity:.7">UTF‑8 / Win‑1252 / ISO‑8859‑1; Komma/Semikolon</div>
   </div>
 
   <div class="panel">
@@ -197,6 +228,7 @@
     <table id="statsTable">
       <tr><th>Box</th><th>Karten</th><th>Fällig</th><th>Nächstes</th></tr>
     </table>
+    <div id="heatWrap" style="margin-top:8px;font-size:12px;opacity:.8;"></div>
   </div>
 
   <div class="panel">
@@ -228,103 +260,146 @@
     </div>
   </div>
 
-  <div class="panel" style="font-size:12px; opacity:.8">
-    <div>Hinweis: Lernmodus zeigt nur <b>Box 1</b>. Prüfmodus nutzt <b>alle fälligen</b> Karten.</div>
+  <div class="panel" style="font-size:12px; opacity:.85">
+    <div>Neue Karten kommen in <b>5er‑Blöcken</b> aus dem Pool und werden zuerst im <b>Lernmodus</b> eingeführt. Prüfmodus zeigt <b>nur gelernte</b> Karten.</div>
   </div>
 </aside>
 
+<div id="toast" class="toast"></div>
+
 <script>
-/* === Setup === */
+/* ===== Helpers & Setup ===== */
 function setVH(){ const vh=window.innerHeight*0.01; document.documentElement.style.setProperty('--vh', vh+'px'); }
 addEventListener('resize', setVH); setVH();
 
 const LS_DECKS="leitnerDecks";
 function uuid(){ return Math.random().toString(36).slice(2,10); }
+function cryptoId(){ return Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2); }
+const todayKey = ()=> new Date().toISOString().slice(0,10);
+
+/* ===== Deck/Zustand laden ===== */
 let decks=JSON.parse(localStorage.getItem(LS_DECKS)||"[]");
 if(decks.length===0){ const id=uuid(); decks=[{id,name:"Spanisch ES→DE"}]; localStorage.setItem(LS_DECKS,JSON.stringify(decks)); }
 let currentDeckId=localStorage.getItem("leitnerCurrentDeck")||decks[0].id;
 function deckKey(k){ return `${k}_${currentDeckId}`; }
 
-/* === Leitner-Config === */
+/* ===== Leitner-Config ===== */
 const boxLimits=[20,20,20,20,20];
 const boxIntervals=[1,2,4,9,14];
-const minBox1Size=20;
+const batchSize=5;
 
-/* === State === */
+/* ===== Daten ===== */
 let activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
 let reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[];
 let learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
-let mode="lernen";                          // "lernen" | "prüfen"
-let direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de"; // es2de | de2es
+let mode="lernen";
+let direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
 let testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
+let freePractice = JSON.parse(localStorage.getItem(deckKey("freePractice") )||"false");
 
-/* Lernmodus-Navigation (Next/Prev) */
-let learnOrder=[];       // Array mit Referenzen (IDs) oder Indizes
-let learnIndex=0;        // Zeiger im Lernmodus
+/* Gamification */
+let points = parseInt(localStorage.getItem(deckKey("points"))||"0",10);
+let level  = parseInt(localStorage.getItem(deckKey("level"))||"1",10);
+let streak = parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
+let lastActivityDate = localStorage.getItem(deckKey("lastActivityDate"))||null;
+let achievements = JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
+let dayCounts = JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}"); // {"YYYY-MM-DD": n}
+let combo=0;
 
 function ensureSeed(){
   if(activeCards.length===0&&reserveCards.length===0&&learnedCards.length===0){
-    activeCards=[{es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0},{es:"adiós",de:"auf Wiedersehen",box:1,lastSeen:null,wrong:0},{es:"gracias",de:"danke",box:1,lastSeen:null,wrong:0},{es:"por favor",de:"bitte",box:1,lastSeen:null,wrong:0},{es:"sí",de:"ja",box:1,lastSeen:null,wrong:0},{es:"no",de:"nein",box:1,lastSeen:null,wrong:0}];
+    activeCards=[{id:cryptoId(),es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"adiós",de:"auf Wiedersehen",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"gracias",de:"danke",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"por favor",de:"bitte",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"sí",de:"ja",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"no",de:"nein",box:1,lastSeen:null,wrong:0,introduced:true}];
     saveData();
   }
 }
-[activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); }));
+[activeCards,reserveCards,learnedCards].forEach(arr=>arr.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoId(); if(typeof c.introduced!=="boolean") c.introduced=false; }));
+
 ensureSeed();
 
-/* === DOM === */
+/* ===== DOM ===== */
 const body=document.body;
 const modeIndicator=document.getElementById("modeIndicator");
+const directionBadge=document.getElementById("directionBadge");
 const boxBadge=document.getElementById("boxBadge");
 const progressBar=document.getElementById("progressBar"), progressText=document.getElementById("progressText"), completionText=document.getElementById("completionText");
-
-const learnPair=document.getElementById("learnPair"), tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe");
-const testPair=document.getElementById("testPair"), testLeft=document.getElementById("testLeft"), testRight=document.getElementById("testRight");
-const testActions=document.getElementById("testActions"), btnRight=document.getElementById("btnRight"), btnWrong=document.getElementById("btnWrong");
+const tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe");
+const learnPair=document.getElementById("learnPair");
+const testPair=document.getElementById("testPair"), testLeft=document.getElementById("testLeft"), testRight=document.getElementById("testRight"), testActions=document.getElementById("testActions");
+const btnRight=document.getElementById("btnRight"), btnWrong=document.getElementById("btnWrong");
 
 const toggleModeBtn=document.getElementById("toggleModeBtn");
 const editBtn=document.getElementById("editBtn");
-const editPanel=document.getElementById("editPanel"); const editEs=document.getElementById("editEs"); const editDe=document.getElementById("editDe");
-const saveEditBtn=document.getElementById("saveEditBtn"), cancelEditBtn=document.getElementById("cancelEditBtn");
+const editPanel=document.getElementById("editPanel"), editEs=document.getElementById("editEs"), editDe=document.getElementById("editDe"), saveEditBtn=document.getElementById("saveEditBtn"), cancelEditBtn=document.getElementById("cancelEditBtn");
 
 const drawer=document.getElementById("drawer"), drawerToggle=document.getElementById("drawerToggle"), drawerClose=document.getElementById("drawerClose");
 const toggleDirectionBtn=document.getElementById("toggleDirectionBtn");
+const freePracticeChk=document.getElementById("freePracticeChk");
+
 const deckSelect=document.getElementById("deckSelect"), deckAddBtn=document.getElementById("deckAddBtn"), deckRenameBtn=document.getElementById("deckRenameBtn"), deckDeleteBtn=document.getElementById("deckDeleteBtn");
 const csvFileInput=document.getElementById("csvFile"), addCardBtn=document.getElementById("addCardBtn");
 const statsTable=document.getElementById("statsTable");
 const resetProgressBtn=document.getElementById("resetProgressBtn"), resetAllBtn=document.getElementById("resetAllBtn"), deleteBtn=document.getElementById("deleteBtn");
-
 const cardsTable=document.getElementById("cardsTable"), searchInput=document.getElementById("searchInput"), listSortSelect=document.getElementById("listSortSelect"), showReserveChk=document.getElementById("showReserveChk");
 const metaBox=document.getElementById("metaBox"), metaWrong=document.getElementById("metaWrong");
 const landscapeBadge=document.getElementById("landscapeBadge");
+const toastEl=document.getElementById("toast");
+const pointsChip=document.getElementById("pointsChip"), levelChip=document.getElementById("levelChip"), streakChip=document.getElementById("streakChip");
+const comboChip=document.getElementById("comboChip"), comboVal=document.getElementById("comboVal");
+const directionTxt=()=> direction==="es2de" ? "ES → DE" : "DE → ES";
 
-/* === Utils === */
-function cryptoRandom(){ return Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10); }
+/* ===== Utils ===== */
 function saveData(){
   localStorage.setItem(deckKey("leitnerActive"),JSON.stringify(activeCards));
   localStorage.setItem(deckKey("leitnerReserve"),JSON.stringify(reserveCards));
   localStorage.setItem(deckKey("leitnerLearned"),JSON.stringify(learnedCards));
   localStorage.setItem(deckKey("leitnerDirection"),direction);
   localStorage.setItem(deckKey("leitnerTestOrder"),testOrder);
+  localStorage.setItem(deckKey("points"), points);
+  localStorage.setItem(deckKey("level"), level);
+  localStorage.setItem(deckKey("streak"), streak);
+  localStorage.setItem(deckKey("achievements"), JSON.stringify(achievements));
+  localStorage.setItem(deckKey("lastActivityDate"), lastActivityDate||"");
+  localStorage.setItem(deckKey("dayCounts"), JSON.stringify(dayCounts));
+  localStorage.setItem(deckKey("freePractice"), JSON.stringify(freePractice));
 }
 function saveDecks(){ localStorage.setItem(LS_DECKS,JSON.stringify(decks)); localStorage.setItem("leitnerCurrentDeck",currentDeckId); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
 function daysBetween(a,b){ return Math.floor((a-b)/(1000*60*60*24)); }
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"), 1400); }
+function vibrate(ms=15){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
 function getDueCards(){
+  if(freePractice){
+    // freie Übung: alle Box 2–5 + Box1 nur, wenn introduced
+    return activeCards.filter(c=> c.box>=2 || (c.box===1 && c.introduced===true));
+  }
   const today=new Date();
   return activeCards.filter(card=>{
+    // Box1: nur gelernte/introduzierte Karten prüfen (d. h. bereits im Lernmodus gesehen)
+    if(card.box===1 && !card.introduced) return false;
     if(card.lastSeen===null) return true;
     return daysBetween(today,new Date(card.lastSeen))>=boxIntervals[card.box-1];
   });
 }
-function autoFillBox1(){
+
+/* ===== Block-Nachschub (nur im Lernmodus) ===== */
+function fillBox1InBatchesIfNeeded(){
   const b1=activeCards.filter(c=>c.box===1).length;
-  if(b1<minBox1Size && reserveCards.length>0){
-    const need=Math.max(0,minBox1Size-b1);
-    const add=reserveCards.splice(0,need);
-    add.forEach(c=>{ c.box=1; c.lastSeen=null; if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); });
+  if(b1===0 && reserveCards.length>0){
+    const take = Math.min(batchSize, reserveCards.length);
+    const add = reserveCards.splice(0, take);
+    add.forEach(c=>{ c.box=1; c.lastSeen=null; c.wrong=c.wrong||0; c.introduced=false; c.id=c.id||cryptoId(); });
     activeCards.push(...add); saveData();
+    toast(`🆕 ${take} neue Karten – bitte zuerst lernen`);
   }
 }
+
+/* ===== Fortschritt / Stats ===== */
 function totals(){ const total=activeCards.length+reserveCards.length+learnedCards.length; const learned=learnedCards.length; return {total, learned}; }
 function updateProgress(){
   const {total,learned}=totals();
@@ -347,11 +422,64 @@ function updateStats(){
     }
     statsTable.insertAdjacentHTML("beforeend",`<tr><td>${b}</td><td>${inBox.length}</td><td>${due}</td><td>${next}</td></tr>`);
   }
+  buildHeat();
 }
-function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+function buildHeat(){
+  // kleine „Heatmap“ als Liste der letzten 14 Tage
+  const wrap=document.getElementById("heatWrap");
+  const days=14, out=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    const n=dayCounts[key]||0;
+    const shade = n===0 ? "#e5e7eb" : n<5 ? "#bbf7d0" : n<15 ? "#86efac" : "#22c55e";
+    out.push(`<span title="${key}: ${n}" style="display:inline-block;width:12px;height:12px;background:${shade};border-radius:3px;margin:2px;"></span>`);
+  }
+  wrap.innerHTML = `<div style="margin-top:6px;">Aktivität (14T): ${out.join("")}</div>`;
+}
 
-/* === Lernmodus: Reihenfolge & Navigation === */
+/* ===== Gamification ===== */
+function addPointsFor(card, correct=true){
+  if(!correct) { combo=0; comboChip.style.display="none"; return; }
+  const inc = Math.max(1, Math.min(5, card.box));
+  points += inc;
+  combo += 1;
+  if(combo>=2){ comboChip.style.display="flex"; comboVal.textContent=combo; }
+  // Level up pro 100 Punkte
+  const newLevel = Math.max(1, Math.floor(points/100) + 1);
+  if(newLevel>level){ level=newLevel; toast(`🎚️ Level ${level} erreicht!`); }
+  // Achievements
+  function unlock(id, msg){ if(!achievements.includes(id)){ achievements.push(id); toast(msg); } }
+  if(points>=100) unlock("p100","🏆 100 Punkte");
+  if(points>=500) unlock("p500","🏆 500 Punkte");
+}
+function markActivity(){
+  const today=todayKey();
+  if(lastActivityDate!==today){
+    // Streak-Logik
+    if(lastActivityDate){
+      const d1=new Date(lastActivityDate), d2=new Date(today);
+      const diff=Math.round((d2-d1)/(1000*60*60*24));
+      if(diff===1) streak+=1;
+      else streak=1;
+    }else{ streak=1; }
+    lastActivityDate=today;
+  }
+  dayCounts[today]=(dayCounts[today]||0)+1;
+  saveData(); updateGamification();
+}
+function updateGamification(){
+  pointsChip.textContent=points;
+  levelChip.textContent=level;
+  streakChip.textContent=streak;
+}
+
+/* ===== Render / Auswahl ===== */
+let currentCard=null, testPhase="prompt";
+let learnOrder=[], learnIndex=0;
+
 function rebuildLearnOrder(){
+  // nur Box1 – alle, auch noch nicht eingeführte; Reihenfolge gemischt
   const pool = activeCards.filter(c=>c.box===1);
   learnOrder = pool.map(c=>c.id);
   shuffle(learnOrder);
@@ -360,27 +488,13 @@ function rebuildLearnOrder(){
 function getLearnCard(){
   if(learnOrder.length===0) rebuildLearnOrder();
   const idsInBox1 = new Set(activeCards.filter(c=>c.box===1).map(c=>c.id));
-  // Entferne IDs, die nicht mehr existieren / nicht mehr Box1 sind
   learnOrder = learnOrder.filter(id => idsInBox1.has(id));
-  if(learnOrder.length===0){ autoFillBox1(); rebuildLearnOrder(); }
+  if(learnOrder.length===0){ fillBox1InBatchesIfNeeded(); rebuildLearnOrder(); }
   if(learnOrder.length===0) return null;
-  // clamp index
   if(learnIndex<0) learnIndex=0;
   if(learnIndex>=learnOrder.length) learnIndex=learnOrder.length-1;
   const id = learnOrder[learnIndex];
   return activeCards.find(c=>c.id===id) || null;
-}
-function nextLearn(){
-  learnIndex++;
-  if(learnIndex>=learnOrder.length){ // am Ende: neu auffüllen/neu mischen
-    autoFillBox1();
-    rebuildLearnOrder();
-  }
-  renderLearn();
-}
-function prevLearn(){
-  learnIndex = Math.max(0, learnIndex-1);
-  renderLearn();
 }
 function renderLearn(){
   const card = getLearnCard();
@@ -390,29 +504,25 @@ function renderLearn(){
     updateMeta(); return;
   }
   tileEs.textContent=card.es; tileDe.textContent=card.de;
+  // Beim Anzeigen im Lernmodus gilt sie als „eingeführt“
+  if(!card.introduced){ card.introduced=true; saveData(); }
   updateMeta();
 }
-
-/* === Auswahl & Render === */
-let currentCard=null;
-let testPhase="prompt"; // "prompt" -> "answer"
-
 function pickNextTestCard(){
-  autoFillBox1();
   let pool = getDueCards();
   if(pool.length===0) return null;
   if(testOrder==="hardest"){ pool.sort((a,b)=>(b.wrong||0)-(a.wrong||0)); return pool[0]; }
   shuffle(pool); return pool[0];
 }
-
 function render(){
-  updateProgress(); updateStats();
-
+  updateGamification(); updateProgress(); updateStats();
   body.classList.toggle("test-mode", mode==="prüfen");
   body.classList.toggle("learn-mode", mode==="lernen");
   modeIndicator.textContent = mode==="prüfen" ? "Prüfen" : "Lernen";
   toggleModeBtn.textContent = mode==="prüfen" ? "Prüfen" : "Lernen";
-  toggleDirectionBtn.textContent = direction==="es2de" ? "ES → DE" : "DE → ES";
+  directionBadge.textContent = directionTxt();
+  document.getElementById("toggleDirectionBtn").textContent = directionTxt();
+  freePracticeChk.checked = !!freePractice;
 
   if(mode==="lernen"){
     learnPair.style.display="grid"; testPair.style.display="none"; testActions.style.display="none";
@@ -421,40 +531,62 @@ function render(){
     learnPair.style.display="none"; testPair.style.display="grid"; testPhase="prompt"; testActions.style.display="none";
     currentCard = pickNextTestCard();
     if(!currentCard){
-      testLeft.textContent="—"; testRight.textContent="Nichts fällig.";
+      testLeft.textContent="—"; testRight.textContent="Nichts zu prüfen.";
       updateMeta(); return;
     }
     const src = (direction==="es2de") ? currentCard.es : currentCard.de;
-    testLeft.textContent = src;
-    testRight.textContent = "—";
+    testLeft.textContent = src; testRight.textContent="—";
     updateMeta();
   }
 }
 function updateMeta(){
-  const b = currentCard ? currentCard.box : "–";
-  document.getElementById("metaBox").textContent = b;
-  document.getElementById("metaWrong").textContent = currentCard ? (currentCard.wrong||0) : 0;
-  document.getElementById("boxBadge").textContent = "Box: " + b;
-  document.getElementById("landscapeBadge").textContent = "B" + b;
+  const b=currentCard?currentCard.box:"–";
+  document.getElementById("metaBox").textContent=b;
+  document.getElementById("metaWrong").textContent=currentCard?(currentCard.wrong||0):0;
+  boxBadge.textContent="Box: "+b;
+  landscapeBadge.textContent="B"+b;
 }
 
-/* === Prüf-Flow === */
+/* ===== Interaktionen ===== */
+/* Lernmodus Gesten: links=next, rechts=prev, tap=next */
+(function learnGestures(){
+  const area = learnPair;
+  let startX=0, startY=0, dx=0, dy=0, touching=false;
+  const THRESH_X=45, THRESH_Y=60;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
+  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
+  function onEnd(){
+    if(!touching) return; touching=false;
+    if(Math.abs(dy) > THRESH_Y) return;
+    if(dx < -THRESH_X){ vibrate(); learnIndex++; renderLearn(); return; }
+    if(dx >  THRESH_X){ vibrate(); learnIndex=Math.max(0,learnIndex-1); renderLearn(); return; }
+    // Tap
+    vibrate(); learnIndex++; renderLearn();
+  }
+  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev,onStart,{passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev,onMove,{passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev,onEnd));
+})();
+
+/* Prüfmodus: Tap zeigt Antwort + Buttons, dann ✅/❌ */
 function revealAnswer(){
   if(mode!=="prüfen" || !currentCard || testPhase!=="prompt") return;
   const tgt = (direction==="es2de") ? currentCard.de : currentCard.es;
-  testRight.textContent = tgt;
-  testPhase = "answer";
-  testActions.style.display = "flex";
+  testRight.textContent=tgt; testPhase="answer"; testActions.style.display="flex";
 }
 testPair.addEventListener("click", revealAnswer);
 
-function haptic(){ try{ navigator.vibrate && navigator.vibrate(15); }catch(e){} }
 btnRight.addEventListener("click", ()=>{
-  if(mode!=="prüfen" || !currentCard) return;
-  haptic();
+  if(mode!=="prüfen"||!currentCard) return;
+  vibrate();
+  addPointsFor(currentCard, true);
+  markActivity();
   if(currentCard.box===5){
     const i=activeCards.indexOf(currentCard); if(i>=0) activeCards.splice(i,1);
     learnedCards.push({...currentCard, learnedAt:new Date().toISOString()});
+    // Achievement: 100 Karten gelernt
+    const totalLearned = learnedCards.length;
+    if(totalLearned>=100 && !achievements.includes("l100")){ achievements.push("l100"); toast("🏆 100 Karten gelernt"); }
   }else{
     const next=currentCard.box+1;
     const nextCount=activeCards.filter(c=>c.box===next).length;
@@ -464,19 +596,23 @@ btnRight.addEventListener("click", ()=>{
   saveData(); render();
 });
 btnWrong.addEventListener("click", ()=>{
-  if(mode!=="prüfen" || !currentCard) return;
-  haptic();
-  currentCard.box = Math.max(1, currentCard.box - 1);
-  currentCard.wrong = (currentCard.wrong||0) + 1;
-  currentCard.lastSeen = new Date().toISOString();
+  if(mode!=="prüfen"||!currentCard) return;
+  vibrate(); addPointsFor(currentCard,false); markActivity();
+  currentCard.box=Math.max(1, currentCard.box-1);
+  currentCard.wrong=(currentCard.wrong||0)+1;
+  currentCard.lastSeen=new Date().toISOString();
   saveData(); render();
 });
 
-/* === Bearbeiten === */
+/* Editor (große Textareas mit Autoresize beim Eingeben) */
+function autoResize(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+4)+'px'; }
+editEs.addEventListener('input', ()=>autoResize(editEs));
+editDe.addEventListener('input', ()=>autoResize(editDe));
+
 editBtn.addEventListener("click", ()=>{
   if(!currentCard) return;
   editPanel.style.display = (editPanel.style.display==="none"||editPanel.style.display==="") ? "flex" : "none";
-  editEs.value = currentCard.es; editDe.value = currentCard.de; editEs.focus();
+  editEs.value=currentCard.es; editDe.value=currentCard.de; autoResize(editEs); autoResize(editDe); editEs.focus();
 });
 cancelEditBtn.addEventListener("click", ()=>{ editPanel.style.display="none"; });
 saveEditBtn.addEventListener("click", ()=>{
@@ -488,20 +624,20 @@ saveEditBtn.addEventListener("click", ()=>{
            || learnedCards.some(c=>c.es===newEs);
   if(dup){ alert("Es existiert bereits eine Karte mit derselben spanischen Seite."); return; }
   currentCard.es=newEs; currentCard.de=newDe;
-  saveData(); editPanel.style.display="none"; render();
+  saveData(); editPanel.style.display="none"; toast("Gespeichert ✅"); render();
 });
 
-/* === Drawer === */
+/* Drawer */
 document.getElementById("drawerToggle").onclick=()=>{ drawer.classList.toggle("open"); };
-drawerClose.onclick=()=>drawer.classList.remove("open");
+drawerClose.onclick=()=> drawer.classList.remove("open");
 
-/* === Richtung === */
-toggleDirectionBtn.addEventListener("click", ()=>{
-  direction = (direction==="es2de") ? "de2es" : "es2de";
-  saveData(); render();
-});
+/* Richtung */
+document.getElementById("toggleDirectionBtn").onclick=()=>{ direction=(direction==="es2de")?"de2es":"es2de"; saveData(); render(); };
 
-/* === CSV Import === */
+/* Freies Üben */
+freePracticeChk.addEventListener("change", ()=>{ freePractice=freePracticeChk.checked; saveData(); toast(freePractice?"Freies Üben: an":"Freies Üben: aus"); render(); });
+
+/* CSV Import */
 csvFileInput.addEventListener("change",(ev)=>{
   const file=ev.target.files[0]; if(!file) return;
   const rdr=new FileReader();
@@ -518,38 +654,40 @@ csvFileInput.addEventListener("change",(ev)=>{
       let es=parts[0]?.trim().replace(/^"(.*)"$/,'$1'); let de=parts[1]?.trim().replace(/^"(.*)"$/,'$1');
       if(!es||!de) continue;
       const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
-      if(!exists){ reserveCards.push({id:cryptoRandom(), es,de,box:1,lastSeen:null,wrong:0}); imported++; }
+      if(!exists){ reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false}); imported++; }
     }
     saveData(); alert(`Import: ${imported} Einträge (Encoding: ${used})`); render();
   };
   rdr.readAsArrayBuffer(file);
 });
 
-/* === Add Card === */
+/* Add Card */
 addCardBtn.onclick=()=>{
   const es=document.getElementById("spanish").value.trim();
   const de=document.getElementById("german").value.trim();
   if(!es||!de) return;
   const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
   if(exists){ alert("Schon vorhanden."); return; }
-  activeCards.push({id:cryptoRandom(), es,de,box:1,lastSeen:null,wrong:0});
+  reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false});
   document.getElementById("spanish").value=""; document.getElementById("german").value="";
-  saveData(); rebuildLearnOrder(); render();
+  saveData(); toast("Zur Reserve hinzugefügt"); render();
 };
 
-/* === Löschen === */
+/* Löschen */
 deleteBtn.onclick=()=>{
   if(!currentCard) return;
   if(!confirm("Möchtest du die aktive Karte wirklich löschen?")) return;
-  const idx=activeCards.indexOf(currentCard);
-  if(idx>=0) activeCards.splice(idx,1);
-  saveData(); rebuildLearnOrder(); render();
+  const i=activeCards.indexOf(currentCard);
+  if(i>=0) activeCards.splice(i,1); else{
+    const ir=reserveCards.indexOf(currentCard); if(ir>=0) reserveCards.splice(ir,1);
+  }
+  saveData(); toast("Gelöscht 🗑️"); render();
 };
 
-/* === Reset === */
+/* Reset */
 resetProgressBtn.onclick=()=>{ if(!confirm("Nur Lernfortschritt zurücksetzen?")) return;
-  activeCards=activeCards.map(c=>({...c, box:1, lastSeen:null}));
-  saveData(); rebuildLearnOrder(); render(); alert("Fortschritt zurückgesetzt.");
+  activeCards=activeCards.map(c=>({...c, box:1, lastSeen:null, introduced:false}));
+  saveData(); toast("Fortschritt zurückgesetzt"); render();
 };
 resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) return;
   localStorage.removeItem(deckKey("leitnerActive"));
@@ -557,49 +695,60 @@ resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) ret
   localStorage.removeItem(deckKey("leitnerLearned"));
   localStorage.removeItem(deckKey("leitnerDirection"));
   localStorage.removeItem(deckKey("leitnerTestOrder"));
-  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); rebuildLearnOrder(); render(); alert("Neu initialisiert.");
+  localStorage.removeItem(deckKey("points"));
+  localStorage.removeItem(deckKey("level"));
+  localStorage.removeItem(deckKey("streak"));
+  localStorage.removeItem(deckKey("achievements"));
+  localStorage.removeItem(deckKey("lastActivityDate"));
+  localStorage.removeItem(deckKey("dayCounts"));
+  localStorage.removeItem(deckKey("freePractice"));
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  ensureSeed(); saveData(); toast("Neu initialisiert"); render();
 };
 
-/* === Decks === */
+/* Decks */
 function rebuildDeckSelect(){
   deckSelect.innerHTML="";
   decks.forEach(d=>{ const o=document.createElement("option"); o.value=d.id; o.textContent=d.name+(d.id===currentDeckId?" (aktiv)":""); deckSelect.appendChild(o); });
   deckSelect.value=currentDeckId;
 }
 rebuildDeckSelect();
-
-deckSelect.onchange=()=>{
-  currentDeckId=deckSelect.value; saveDecks();
+deckSelect.onchange=()=>{ currentDeckId=deckSelect.value; saveDecks();
   activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
   reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[];
   learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
   direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
   testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
-  [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoRandom(); }));
-  ensureSeed(); rebuildLearnOrder(); render();
+  points=parseInt(localStorage.getItem(deckKey("points"))||"0",10);
+  level=parseInt(localStorage.getItem(deckKey("level"))||"1",10);
+  streak=parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
+  achievements=JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
+  lastActivityDate=localStorage.getItem(deckKey("lastActivityDate"))||null;
+  dayCounts=JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}");
+  freePractice=JSON.parse(localStorage.getItem(deckKey("freePractice"))||"false");
+  [activeCards,reserveCards,learnedCards].forEach(arr=>arr.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoId(); if(typeof c.introduced!=="boolean") c.introduced=false; }));
+  render();
 };
 deckAddBtn.onclick=()=>{ const name=prompt("Name der neuen Übung:"); if(!name) return;
   const id=uuid(); decks.push({id,name}); saveDecks();
   currentDeckId=id; rebuildDeckSelect();
-  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; ensureSeed(); saveData(); rebuildLearnOrder(); render();
+  activeCards=[]; reserveCards=[]; learnedCards=[];
+  direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  ensureSeed(); saveData(); render();
 };
 deckRenameBtn.onclick=()=>{ const deck=decks.find(d=>d.id===currentDeckId); if(!deck) return;
-  const name=prompt("Neuer Name:", deck.name); if(!name) return;
-  deck.name=name; saveDecks(); rebuildDeckSelect();
+  const name=prompt("Neuer Name:", deck.name); if(!name) return; deck.name=name; saveDecks(); rebuildDeckSelect();
 };
 deckDeleteBtn.onclick=()=>{ if(decks.length<=1){ alert("Mindestens eine Übung muss bleiben."); return; }
   const deck=decks.find(d=>d.id===currentDeckId);
   if(!deck || !confirm(`„${deck.name}“ wirklich löschen?`)) return;
-  localStorage.removeItem(deckKey("leitnerActive"));
-  localStorage.removeItem(deckKey("leitnerReserve"));
-  localStorage.removeItem(deckKey("leitnerLearned"));
-  localStorage.removeItem(deckKey("leitnerDirection"));
-  localStorage.removeItem(deckKey("leitnerTestOrder"));
-  decks=decks.filter(d=>d.id!==currentDeckId);
-  currentDeckId=decks[0].id; saveDecks(); rebuildDeckSelect(); deckSelect.onchange();
+  // alle Deck-Daten löschen
+  ["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","leitnerTestOrder","points","level","streak","achievements","lastActivityDate","dayCounts","freePractice"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));
+  decks=decks.filter(d=>d.id!==currentDeckId); currentDeckId=decks[0].id; saveDecks(); rebuildDeckSelect(); deckSelect.onchange();
 };
 
-/* === Liste === */
+/* Suche/Liste */
+function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
 function buildTable(){
   const q=searchInput.value.trim().toLowerCase(); const incl=showReserveChk.checked;
   let rows=activeCards.map(c=>({...c,_w:"aktiv"})); if(incl) rows=rows.concat(reserveCards.map(c=>({...c,_w:"reserve"})));
@@ -619,63 +768,21 @@ function buildTable(){
     tr.querySelector("[data-e]").onclick=()=>{ const es=prompt("Spanisch:",r.es); if(es===null)return; const de=prompt("Deutsch:",r.de); if(de===null)return; if(!es.trim()||!de.trim())return;
       const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);
       if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){ alert("Karte mit dieser spanischen Seite existiert bereits."); return; }
-      r.es=es.trim(); r.de=de.trim(); saveData(); rebuildLearnOrder(); render(); };
-    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); rebuildLearnOrder(); render(); };
+      r.es=es.trim(); r.de=de.trim(); saveData(); toast("Gespeichert ✅"); render(); };
+    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); toast("Gelöscht 🗑️"); render(); };
     tb.appendChild(tr);
   }
 }
 searchInput.oninput=buildTable; listSortSelect.onchange=buildTable; showReserveChk.onchange=buildTable;
 
-/* === Modus-Toggle === */
-toggleModeBtn.onclick=()=>{ mode = (mode==="lernen") ? "prüfen" : "lernen"; editPanel.style.display="none"; render(); };
+/* Modus-Toggle */
+toggleModeBtn.onclick=()=>{ mode=(mode==="lernen")?"prüfen":"lernen"; editPanel.style.display="none"; combo=0; comboChip.style.display="none"; render(); };
 
-/* === Gesten: Lernmodus (links=next, rechts=prev, tippen=next) === */
-(function learnGestures(){
-  const area = learnPair;
-  let startX=0, startY=0, dx=0, dy=0, touching=false;
-  const THRESH_X = 45, THRESH_Y = 60; // etwas großzügig gegen Scroll
-  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
-  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
-  function onEnd(){
-    if(!touching) return; touching=false;
-    if(Math.abs(dy) > THRESH_Y) return; // vertikale Geste ignorieren
-    if(dx < -THRESH_X){ nextLearn(); return; }     // links wischen
-    if(dx >  THRESH_X){ prevLearn(); return; }     // rechts wischen
-    // Tap
-    nextLearn();
-  }
-  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev, onStart, {passive:true}));
-  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev, onMove, {passive:true}));
-  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev, onEnd));
-})();
+/* Start */
+fillBox1InBatchesIfNeeded(); rebuildLearnOrder(); render();
 
-/* === Prüfmodus: Tippen zeigt Antwort (Buttons), Gesten optional wie gehabt === */
-(function testOptionalGestures(){
-  const area = testPair;
-  let startX=0, startY=0, dx=0, dy=0, touching=false;
-  const THRESH_X = 55, THRESH_Y = 80;
-  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
-  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
-  function onEnd(){
-    if(!touching) return; touching=false;
-    if(mode!=="prüfen") return;
-    if(testPhase==="prompt"){ revealAnswer(); return; }
-    // in der Answer-Phase optional: Wischen rechts=✅, links=❌
-    if(Math.abs(dy) > THRESH_Y) return;
-    if(dx > THRESH_X){ btnRight.click(); return; }
-    if(dx < -THRESH_X){ btnWrong.click(); return; }
-  }
-  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev, onStart, {passive:true}));
-  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev, onMove, {passive:true}));
-  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev, onEnd));
-})();
-
-/* === Start === */
-function initIDs(){ [activeCards,reserveCards,learnedCards].forEach(a=>a.forEach(c=>{ if(!c.id) c.id=cryptoRandom(); })); }
-initIDs(); autoFillBox1(); rebuildLearnOrder(); render();
-
-/* === PWA SW (falls vorhanden) === */
-if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js').catch(console.error)); }
+/* PWA: Service Worker laden (Version-Bump via ?v=5) */
+if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js?v=5').catch(console.error)); }
 </script>
 </body>
 </html>
