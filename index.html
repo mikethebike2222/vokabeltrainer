@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <title>Vokabeltrainer – Mobile (Blocks, Freies Üben, Gamification)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- WICHTIG: Zoom bleibt erlaubt -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=10, user-scalable=yes">
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1b3d8f">
-<link rel="manifest" href="manifest.webmanifest?v=5">
+<link rel="manifest" href="manifest.webmanifest?v=6">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -66,6 +69,10 @@
   .panel{ background:#fff; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); padding:12px; margin-bottom:12px; }
   .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   input[type="text"], select, textarea{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; width:100%; }
+
+  /* iOS Fokus-Autozoom vermeiden: >= 16px */
+  input[type="text"], select, textarea{ font-size:16px; }
+
   textarea{ min-height:90px; resize:vertical; }
 
   .table-wrap{ max-height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; }
@@ -74,6 +81,12 @@
 
   .toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:#111827; color:#fff; padding:10px 14px; border-radius:999px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:60; }
   .toast.show{ opacity:0.98; transform:translateX(-50%) translateY(-4px); }
+
+  /* Reduced Motion Unterstützung */
+  @media (prefers-reduced-motion: reduce){
+    .progress>div{ transition:none; }
+    .toast{ transition:none; }
+  }
 
   /* Querformat: fast Fullscreen mit kleinem Rand + Safe-Area */
   @media (orientation:landscape){
@@ -133,31 +146,31 @@
 
 <!-- Globale Controls (nur Portrait) -->
 <div class="controls global">
-  <button id="toggleModeBtn" class="secondary pill">Lernen</button>
-  <button id="editBtn" class="pill">✏️ Bearbeiten</button>
-  <button id="drawerToggle" class="ghost pill">☰ Werkzeug</button>
+  <button id="toggleModeBtn" class="secondary pill" aria-label="Modus wechseln">Lernen</button>
+  <button id="editBtn" class="pill" aria-label="Karte bearbeiten">✏️ Bearbeiten</button>
+  <button id="drawerToggle" class="ghost pill" aria-label="Werkzeugschublade öffnen">☰ Werkzeug</button>
 </div>
 
 <div class="stage">
   <main>
     <!-- LERNMODUS -->
-    <div id="learnPair" class="pair">
-      <div id="tileEs" class="tile es">—</div>
-      <div id="tileDe" class="tile de">—</div>
+    <div id="learnPair" class="pair" role="group" aria-label="Lernmodus Karte">
+      <div id="tileEs" class="tile es" role="region" aria-label="Spanisch" aria-live="polite">—</div>
+      <div id="tileDe" class="tile de" role="region" aria-label="Deutsch" aria-live="polite">—</div>
     </div>
 
     <!-- PRÜFMODUS (Zwei-Karten-Flow) -->
-    <div id="testPair" class="pair" style="display:none;">
-      <div id="testLeft" class="tile es">—</div>
-      <div id="testRight" class="tile de">—</div>
+    <div id="testPair" class="pair" style="display:none;" role="button" tabindex="0" aria-label="Aufgabe anzeigen oder Antwort aufdecken">
+      <div id="testLeft" class="tile es" role="region" aria-live="polite">—</div>
+      <div id="testRight" class="tile de" role="region" aria-live="polite">—</div>
     </div>
-    <div id="testActions" class="controls">
-      <button id="btnWrong" class="danger">❌ Falsch</button>
-      <button id="btnRight" class="success">✅ Richtig</button>
+    <div id="testActions" class="controls" aria-label="Antwort bewerten">
+      <button id="btnWrong" class="danger" aria-label="Antwort war falsch">❌ Falsch</button>
+      <button id="btnRight" class="success" aria-label="Antwort war richtig">✅ Richtig</button>
     </div>
 
     <!-- Inline-Editor -->
-    <div id="editPanel" class="controls">
+    <div id="editPanel" class="controls" aria-label="Karte bearbeiten">
       <textarea id="editEs" placeholder="Spanisch – hier bearbeiten …"></textarea>
       <textarea id="editDe" placeholder="Deutsch – hier bearbeiten …"></textarea>
       <div class="row" style="justify-content:center;">
@@ -203,7 +216,26 @@
     <h3>Freies Üben</h3>
     <div class="row">
       <label style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="freePracticeChk"> Fälligkeit ignorieren (Box 2–5 + gelernte Box‑1)
+        <input type="checkbox" id="freePracticeChk"> Fälligkeit ignorieren (Box 2–5 + gelernte Box-1)
+      </label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Prüfreihenfolge</h3>
+    <div class="row">
+      <select id="testOrderSelect" aria-label="Reihenfolge im Prüfmodus">
+        <option value="random">Zufällig</option>
+        <option value="hardest">Schwierigste zuerst</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Einstellungen</h3>
+    <div class="row">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="hapticsChk" checked> Vibration (Haptik)
       </label>
     </div>
   </div>
@@ -211,7 +243,7 @@
   <div class="panel">
     <h3>CSV Import (ES,DE)</h3>
     <input type="file" id="csvFile" accept=".csv">
-    <div style="font-size:12px;opacity:.7">UTF‑8 / Win‑1252 / ISO‑8859‑1; Komma/Semikolon</div>
+    <div style="font-size:12px;opacity:.7">UTF-8 / Win-1252 / ISO-8859-1; Komma/Semikolon</div>
   </div>
 
   <div class="panel">
@@ -261,7 +293,7 @@
   </div>
 
   <div class="panel" style="font-size:12px; opacity:.85">
-    <div>Neue Karten kommen in <b>5er‑Blöcken</b> aus dem Pool und werden zuerst im <b>Lernmodus</b> eingeführt. Prüfmodus zeigt <b>nur gelernte</b> Karten.</div>
+    <div>Neue Karten kommen in <b>5er-Blöcken</b> aus dem Pool und werden zuerst im <b>Lernmodus</b> eingeführt. Prüfmodus zeigt <b>nur gelernte</b> Karten.</div>
   </div>
 </aside>
 
@@ -275,7 +307,9 @@ addEventListener('resize', setVH); setVH();
 const LS_DECKS="leitnerDecks";
 function uuid(){ return Math.random().toString(36).slice(2,10); }
 function cryptoId(){ return Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2); }
-const todayKey = ()=> new Date().toISOString().slice(0,10);
+
+// Stabiler Tages-Key in lokaler Zeit (YYYY-MM-DD), unabhängig von UTC
+const todayKey = () => new Date().toLocaleDateString('sv-SE');
 
 /* ===== Deck/Zustand laden ===== */
 let decks=JSON.parse(localStorage.getItem(LS_DECKS)||"[]");
@@ -306,6 +340,44 @@ let achievements = JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]
 let dayCounts = JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}"); // {"YYYY-MM-DD": n}
 let combo=0;
 
+/* Haptik (Vibration) */
+let haptics = JSON.parse(localStorage.getItem(deckKey("haptics")) || "true");
+
+/* ===== Viewport-Zoom-Fix (iOS/Android) – Zoom bleibt erlaubt ===== */
+const viewportMeta = document.querySelector('meta[name="viewport"]');
+const BASE_VP = 'width=device-width, initial-scale=1, viewport-fit=cover';
+
+// Lockt kurz den Zoom und setzt ihn dann wieder frei – das „entzoomt“ zuverlässig.
+function lockAndResetZoom() {
+  if (!viewportMeta) return;
+  viewportMeta.setAttribute('content', BASE_VP + ', maximum-scale=1, user-scalable=no');
+  // kleiner „Nudge“; einige iOS-Versionen brauchen das
+  window.scrollTo(0, 0);
+  // Release – Pinch-Zoom wieder erlauben
+  setTimeout(() => {
+    viewportMeta.setAttribute('content', BASE_VP + ', maximum-scale=10, user-scalable=yes');
+  }, 250);
+}
+function resetZoomIfNeeded(force = false) {
+  try {
+    if (force) return lockAndResetZoom();
+    if (window.visualViewport && typeof visualViewport.scale === 'number') {
+      // Auch wenn scale==1 gemeldet wird, nach Orientationwechsel sicherheitshalber normalisieren
+      lockAndResetZoom();
+    } else {
+      lockAndResetZoom();
+    }
+  } catch(e) {}
+}
+addEventListener('orientationchange', () => setTimeout(() => resetZoomIfNeeded(true), 60));
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', () => {
+    const editorOpen = getComputedStyle(document.getElementById('editPanel')).display !== 'none';
+    if (!editorOpen) resetZoomIfNeeded();
+  });
+}
+
+/* ===== Seed/Upgrades ===== */
 function ensureSeed(){
   if(activeCards.length===0&&reserveCards.length===0&&learnedCards.length===0){
     activeCards=[{id:cryptoId(),es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0,introduced:true},
@@ -339,6 +411,7 @@ const editPanel=document.getElementById("editPanel"), editEs=document.getElement
 const drawer=document.getElementById("drawer"), drawerToggle=document.getElementById("drawerToggle"), drawerClose=document.getElementById("drawerClose");
 const toggleDirectionBtn=document.getElementById("toggleDirectionBtn");
 const freePracticeChk=document.getElementById("freePracticeChk");
+const hapticsChk=document.getElementById("hapticsChk");
 
 const deckSelect=document.getElementById("deckSelect"), deckAddBtn=document.getElementById("deckAddBtn"), deckRenameBtn=document.getElementById("deckRenameBtn"), deckDeleteBtn=document.getElementById("deckDeleteBtn");
 const csvFileInput=document.getElementById("csvFile"), addCardBtn=document.getElementById("addCardBtn");
@@ -351,6 +424,7 @@ const toastEl=document.getElementById("toast");
 const pointsChip=document.getElementById("pointsChip"), levelChip=document.getElementById("levelChip"), streakChip=document.getElementById("streakChip");
 const comboChip=document.getElementById("comboChip"), comboVal=document.getElementById("comboVal");
 const directionTxt=()=> direction==="es2de" ? "ES → DE" : "DE → ES";
+const testOrderSelect=document.getElementById("testOrderSelect");
 
 /* ===== Utils ===== */
 function saveData(){
@@ -366,12 +440,13 @@ function saveData(){
   localStorage.setItem(deckKey("lastActivityDate"), lastActivityDate||"");
   localStorage.setItem(deckKey("dayCounts"), JSON.stringify(dayCounts));
   localStorage.setItem(deckKey("freePractice"), JSON.stringify(freePractice));
+  localStorage.setItem(deckKey("haptics"), JSON.stringify(haptics));
 }
 function saveDecks(){ localStorage.setItem(LS_DECKS,JSON.stringify(decks)); localStorage.setItem("leitnerCurrentDeck",currentDeckId); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
 function daysBetween(a,b){ return Math.floor((a-b)/(1000*60*60*24)); }
 function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"), 1400); }
-function vibrate(ms=15){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+function vibrate(ms=15){ if(!haptics) return; try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
 
 function getDueCards(){
   if(freePractice){
@@ -418,7 +493,7 @@ function updateStats(){
     if(inBox.length){
       const ds=inBox.map(c=>{ if(!c.lastSeen) return new Date(0); const d=new Date(c.lastSeen); d.setDate(d.getDate()+boxIntervals[b-1]); return d; });
       const soonest=new Date(Math.min(...ds.map(d=>d.getTime())));
-      next=soonest.getTime()>0?soonest.toLocaleDateString():"heute";
+      next=soonest.getTime()>0?soonest.toLocaleDateString('de-DE'):"heute";
     }
     statsTable.insertAdjacentHTML("beforeend",`<tr><td>${b}</td><td>${inBox.length}</td><td>${due}</td><td>${next}</td></tr>`);
   }
@@ -430,7 +505,7 @@ function buildHeat(){
   const days=14, out=[];
   for(let i=days-1;i>=0;i--){
     const d=new Date(); d.setDate(d.getDate()-i);
-    const key=d.toISOString().slice(0,10);
+    const key=d.toLocaleDateString('sv-SE');
     const n=dayCounts[key]||0;
     const shade = n===0 ? "#e5e7eb" : n<5 ? "#bbf7d0" : n<15 ? "#86efac" : "#22c55e";
     out.push(`<span title="${key}: ${n}" style="display:inline-block;width:12px;height:12px;background:${shade};border-radius:3px;margin:2px;"></span>`);
@@ -523,6 +598,8 @@ function render(){
   directionBadge.textContent = directionTxt();
   document.getElementById("toggleDirectionBtn").textContent = directionTxt();
   freePracticeChk.checked = !!freePractice;
+  if (testOrderSelect) testOrderSelect.value = testOrder;
+  if (hapticsChk) hapticsChk.checked = !!haptics;
 
   if(mode==="lernen"){
     learnPair.style.display="grid"; testPair.style.display="none"; testActions.style.display="none";
@@ -568,6 +645,23 @@ function updateMeta(){
   ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev,onEnd));
 })();
 
+/* Tastatursteuerung & A11y */
+addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+
+  if (mode === "lernen") {
+    if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); vibrate(); learnIndex++; renderLearn(); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); vibrate(); learnIndex=Math.max(0,learnIndex-1); renderLearn(); }
+  } else {
+    if (testPhase === "prompt" && (e.key === " " || e.key === "Enter")) { e.preventDefault(); revealAnswer(); }
+    if (testPhase === "answer") {
+      if (e.key === "1") { e.preventDefault(); btnRight.click(); }
+      if (e.key === "0") { e.preventDefault(); btnWrong.click(); }
+    }
+  }
+});
+
 /* Prüfmodus: Tap zeigt Antwort + Buttons, dann ✅/❌ */
 function revealAnswer(){
   if(mode!=="prüfen" || !currentCard || testPhase!=="prompt") return;
@@ -575,6 +669,7 @@ function revealAnswer(){
   testRight.textContent=tgt; testPhase="answer"; testActions.style.display="flex";
 }
 testPair.addEventListener("click", revealAnswer);
+testPair.addEventListener("keydown", (e)=>{ if((e.key===" "||e.key==="Enter") && testPhase==="prompt"){ e.preventDefault(); revealAnswer(); } });
 
 btnRight.addEventListener("click", ()=>{
   if(mode!=="prüfen"||!currentCard) return;
@@ -590,8 +685,14 @@ btnRight.addEventListener("click", ()=>{
   }else{
     const next=currentCard.box+1;
     const nextCount=activeCards.filter(c=>c.box===next).length;
-    if(nextCount<boxLimits[next-1]) currentCard.box=next;
-    currentCard.lastSeen=new Date().toISOString();
+    const nowISO=new Date().toISOString();
+    if(nextCount<boxLimits[next-1]){
+      currentCard.box=next;
+      currentCard.lastSeen=nowISO;
+    }else{
+      // Zielbox voll: Karte in aktueller Box parken, aber lastSeen setzen -> kein Sofort-Loop
+      currentCard.lastSeen=nowISO;
+    }
   }
   saveData(); render();
 });
@@ -612,9 +713,13 @@ editDe.addEventListener('input', ()=>autoResize(editDe));
 editBtn.addEventListener("click", ()=>{
   if(!currentCard) return;
   editPanel.style.display = (editPanel.style.display==="none"||editPanel.style.display==="") ? "flex" : "none";
-  editEs.value=currentCard.es; editDe.value=currentCard.de; autoResize(editEs); autoResize(editDe); editEs.focus();
+  editEs.value=currentCard.es; editDe.value=currentCard.de; autoResize(editEs); autoResize(editDe);
+  // Kein Auto-Fokus nötig (vermeidet unnötiges Reinscrollen)
 });
-cancelEditBtn.addEventListener("click", ()=>{ editPanel.style.display="none"; });
+cancelEditBtn.addEventListener("click", ()=>{
+  editPanel.style.display="none";
+  setTimeout(()=>resetZoomIfNeeded(true), 30);
+});
 saveEditBtn.addEventListener("click", ()=>{
   if(!currentCard) return;
   const newEs=editEs.value.trim(), newDe=editDe.value.trim();
@@ -625,6 +730,7 @@ saveEditBtn.addEventListener("click", ()=>{
   if(dup){ alert("Es existiert bereits eine Karte mit derselben spanischen Seite."); return; }
   currentCard.es=newEs; currentCard.de=newDe;
   saveData(); editPanel.style.display="none"; toast("Gespeichert ✅"); render();
+  setTimeout(()=>resetZoomIfNeeded(true), 30);
 });
 
 /* Drawer */
@@ -637,7 +743,28 @@ document.getElementById("toggleDirectionBtn").onclick=()=>{ direction=(direction
 /* Freies Üben */
 freePracticeChk.addEventListener("change", ()=>{ freePractice=freePracticeChk.checked; saveData(); toast(freePractice?"Freies Üben: an":"Freies Üben: aus"); render(); });
 
-/* CSV Import */
+/* Prüfreihenfolge */
+if (testOrderSelect){
+  testOrderSelect.value = testOrder;
+  testOrderSelect.addEventListener('change', ()=>{
+    testOrder = testOrderSelect.value;
+    saveData();
+    toast(testOrder === 'hardest' ? 'Schwierigste zuerst' : 'Zufällig');
+    if (mode==="prüfen") render();
+  });
+}
+
+/* Haptik (Vibration) */
+if (hapticsChk){
+  hapticsChk.checked = !!haptics;
+  hapticsChk.addEventListener('change', ()=>{
+    haptics = hapticsChk.checked;
+    saveData();
+    toast(haptics ? 'Haptik an' : 'Haptik aus');
+  });
+}
+
+/* CSV Import – robust (BOM, Monsterzeilen, Normalisierung) */
 csvFileInput.addEventListener("change",(ev)=>{
   const file=ev.target.files[0]; if(!file) return;
   const rdr=new FileReader();
@@ -646,14 +773,28 @@ csvFileInput.addEventListener("change",(ev)=>{
     const decs=[new TextDecoder("utf-8"), new TextDecoder("windows-1252"), new TextDecoder("iso-8859-1")];
     let text="", used="utf-8";
     for(const d of decs){ const t=d.decode(buf); const bad=(t.match(/\uFFFD/g)||[]).length; if(bad===0){ text=t; used=d.encoding||used; break; } if(!text) text=t; }
-    const lines=text.split(/\r?\n/); let imported=0;
-    for(const raw of lines){
-      if(!raw.trim()) continue;
+    // BOM entfernen
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+    const lines=text.split(/\r?\n/);
+    let imported=0;
+    const norm = s => (s||"").normalize('NFC').replace(/\s+/g,' ').trim();
+
+    for(let raw of lines){
+      raw = raw.trim();
+      if(!raw) continue;
+      if(raw.length>2000) continue; // Sicherheitsnetz gegen Monsterzeilen
+
       const sep=(raw.includes(";")&&(!raw.includes(",")||raw.indexOf(";")<raw.indexOf(",")))?";":",";
       const parts=raw.split(sep); if(parts.length<2) continue;
-      let es=parts[0]?.trim().replace(/^"(.*)"$/,'$1'); let de=parts[1]?.trim().replace(/^"(.*)"$/,'$1');
+
+      let es=norm(parts[0]?.replace(/^"(.*)"$/,'$1'));
+      let de=norm(parts[1]?.replace(/^"(.*)"$/,'$1'));
       if(!es||!de) continue;
-      const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
+
+      const exists=activeCards.some(c=>norm(c.es)===es)
+                 || reserveCards.some(c=>norm(c.es)===es)
+                 || learnedCards.some(c=>norm(c.es)===es);
       if(!exists){ reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false}); imported++; }
     }
     saveData(); alert(`Import: ${imported} Einträge (Encoding: ${used})`); render();
@@ -663,12 +804,14 @@ csvFileInput.addEventListener("change",(ev)=>{
 
 /* Add Card */
 addCardBtn.onclick=()=>{
-  const es=document.getElementById("spanish").value.trim();
-  const de=document.getElementById("german").value.trim();
+  const es=(document.getElementById("spanish").value||"").trim();
+  const de=(document.getElementById("german").value||"").trim();
   if(!es||!de) return;
-  const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
+  const norm=s=>s.normalize('NFC').replace(/\s+/g,' ').trim();
+  const esN=norm(es);
+  const exists=activeCards.some(c=>norm(c.es)===esN)||reserveCards.some(c=>norm(c.es)===esN)||learnedCards.some(c=>norm(c.es)===esN);
   if(exists){ alert("Schon vorhanden."); return; }
-  reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false});
+  reserveCards.push({id:cryptoId(), es:esN, de:norm(de), box:1,lastSeen:null,wrong:0,introduced:false});
   document.getElementById("spanish").value=""; document.getElementById("german").value="";
   saveData(); toast("Zur Reserve hinzugefügt"); render();
 };
@@ -690,19 +833,8 @@ resetProgressBtn.onclick=()=>{ if(!confirm("Nur Lernfortschritt zurücksetzen?")
   saveData(); toast("Fortschritt zurückgesetzt"); render();
 };
 resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) return;
-  localStorage.removeItem(deckKey("leitnerActive"));
-  localStorage.removeItem(deckKey("leitnerReserve"));
-  localStorage.removeItem(deckKey("leitnerLearned"));
-  localStorage.removeItem(deckKey("leitnerDirection"));
-  localStorage.removeItem(deckKey("leitnerTestOrder"));
-  localStorage.removeItem(deckKey("points"));
-  localStorage.removeItem(deckKey("level"));
-  localStorage.removeItem(deckKey("streak"));
-  localStorage.removeItem(deckKey("achievements"));
-  localStorage.removeItem(deckKey("lastActivityDate"));
-  localStorage.removeItem(deckKey("dayCounts"));
-  localStorage.removeItem(deckKey("freePractice"));
-  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  ["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","leitnerTestOrder","points","level","streak","achievements","lastActivityDate","dayCounts","freePractice","haptics"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false; haptics=true;
   ensureSeed(); saveData(); toast("Neu initialisiert"); render();
 };
 
@@ -726,6 +858,7 @@ deckSelect.onchange=()=>{ currentDeckId=deckSelect.value; saveDecks();
   lastActivityDate=localStorage.getItem(deckKey("lastActivityDate"))||null;
   dayCounts=JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}");
   freePractice=JSON.parse(localStorage.getItem(deckKey("freePractice"))||"false");
+  haptics=JSON.parse(localStorage.getItem(deckKey("haptics"))||"true");
   [activeCards,reserveCards,learnedCards].forEach(arr=>arr.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoId(); if(typeof c.introduced!=="boolean") c.introduced=false; }));
   render();
 };
@@ -733,7 +866,7 @@ deckAddBtn.onclick=()=>{ const name=prompt("Name der neuen Übung:"); if(!name) 
   const id=uuid(); decks.push({id,name}); saveDecks();
   currentDeckId=id; rebuildDeckSelect();
   activeCards=[]; reserveCards=[]; learnedCards=[];
-  direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false; haptics=true;
   ensureSeed(); saveData(); render();
 };
 deckRenameBtn.onclick=()=>{ const deck=decks.find(d=>d.id===currentDeckId); if(!deck) return;
@@ -743,7 +876,7 @@ deckDeleteBtn.onclick=()=>{ if(decks.length<=1){ alert("Mindestens eine Übung m
   const deck=decks.find(d=>d.id===currentDeckId);
   if(!deck || !confirm(`„${deck.name}“ wirklich löschen?`)) return;
   // alle Deck-Daten löschen
-  ["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","leitnerTestOrder","points","level","streak","achievements","lastActivityDate","dayCounts","freePractice"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));
+  ["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","leitnerTestOrder","points","level","streak","achievements","lastActivityDate","dayCounts","freePractice","haptics"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));
   decks=decks.filter(d=>d.id!==currentDeckId); currentDeckId=decks[0].id; saveDecks(); rebuildDeckSelect(); deckSelect.onchange();
 };
 
@@ -764,7 +897,7 @@ function buildTable(){
   const tb=cardsTable; tb.innerHTML="";
   for(const r of rows){
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${esc(r.es)}</td><td>${esc(r.de)}</td><td>${r.box||"-"}${r._w==="reserve"?"*":""}</td><td>${r.wrong||0}</td><td>${r.lastSeen?new Date(r.lastSeen).toLocaleDateString():"-"}</td><td><button class="ghost" data-e>Edit</button><button class="danger" data-d>Del</button></td>`;
+    tr.innerHTML=`<td>${esc(r.es)}</td><td>${esc(r.de)}</td><td>${r.box||"-"}${r._w==="reserve"?"*":""}</td><td>${r.wrong||0}</td><td>${r.lastSeen?new Date(r.lastSeen).toLocaleDateString('de-DE'):"-"}</td><td><button class="ghost" data-e>Edit</button><button class="danger" data-d>Del</button></td>`;
     tr.querySelector("[data-e]").onclick=()=>{ const es=prompt("Spanisch:",r.es); if(es===null)return; const de=prompt("Deutsch:",r.de); if(de===null)return; if(!es.trim()||!de.trim())return;
       const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);
       if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){ alert("Karte mit dieser spanischen Seite existiert bereits."); return; }
@@ -781,8 +914,8 @@ toggleModeBtn.onclick=()=>{ mode=(mode==="lernen")?"prüfen":"lernen"; editPanel
 /* Start */
 fillBox1InBatchesIfNeeded(); rebuildLearnOrder(); render();
 
-/* PWA: Service Worker laden (Version-Bump via ?v=5) */
-if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js?v=5').catch(console.error)); }
+/* PWA: Service Worker laden (Version-Bump via ?v=6) */
+if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js?v=6').catch(console.error)); }
 </script>
 </body>
 </html>
