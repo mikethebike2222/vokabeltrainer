@@ -47,12 +47,12 @@ header {
   right: calc(12px + env(safe-area-inset-right));
   top: calc(48px + env(safe-area-inset-top));
   z-index: 50;
-  padding: 8px 12px;
+  padding: 4px 8px; /* NEU: kleiner gemacht */
   border: none;
   border-radius: 8px;
   background: #10b981;
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   display: none;
 }
 @media (orientation:portrait){ #freshBtn { display:none !important; } }
@@ -116,6 +116,7 @@ header {
   margin: 0 2px;
   background: #3b82f6;
   min-height: 5px;
+  cursor: pointer; /* NEU: Klickbar */
 }
 
 /* Drawer Panel */
@@ -138,9 +139,15 @@ header {
   top: 8px; right: 8px;
   background: none; border: none; font-size: 24px;
 }
-.row { display: flex; gap: 6px; margin-bottom: 8px; }
+.row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .pill { border: none; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
 input, select, button { font-size: 1rem; }
+
+/* Vorschau-Placeholder (NEU) */
+.placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
 
 /* Pie Chart */
 #pieChart { display: block; margin: 16px auto; }
@@ -180,9 +187,9 @@ input, select, button { font-size: 1rem; }
 
 <aside id="drawer" class="drawer">
   <button id="drawerClose">×</button>
-  <h2>Werkzeuge</h2>
+  <h2 id="toolsTitle">Werkzeuge</h2>
   <div class="row">
-    <label for="deckSelect">Deck:</label>
+    <label for="deckSelect" id="deckLabel">Deck:</label>
     <select id="deckSelect"></select>
   </div>
   <div class="row">
@@ -191,7 +198,7 @@ input, select, button { font-size: 1rem; }
     <button id="saveLabelsBtn" class="pill">✔︎</button>
   </div>
   <div class="row">
-    <label for="langSelect">UI-Sprache:</label>
+    <label for="langSelect" id="langLabel">UI-Sprache:</label>
     <select id="langSelect">
       <option value="de">Deutsch</option>
       <option value="en">English</option>
@@ -203,7 +210,7 @@ input, select, button { font-size: 1rem; }
     <span id="directionBadge">A → B</span>
     <button id="toggleDirectionBtn" class="pill">⇆</button>
   </div>
-  <h3>Neue Karte hinzufügen</h3>
+  <h3 id="addCardTitle">Neue Karte hinzufügen</h3>
   <div class="row">
     <input type="text" id="inputSideA" placeholder="A">
   </div>
@@ -215,15 +222,77 @@ input, select, button { font-size: 1rem; }
     <input type="file" id="importFile" accept=".json">
     <button id="exportBtn" class="pill">Exportieren</button>
   </div>
-  <h3>Statistik</h3>
+  <h3 id="statsTitle">Statistik</h3>
   <canvas id="pieChart" width="200" height="200"></canvas>
 </aside>
 
 <button id="drawerToggle">☰</button>
+
+<!-- JavaScript folgt in Teil 2 -->
 <script>
-// === Konstanten & State ===
+// === Sprachdaten (NEU) ===
+const translations = {
+  de: {
+    title: "Vokabeltrainer",
+    toolsTitle: "Werkzeuge",
+    deckLabel: "Deck:",
+    langLabel: "UI-Sprache:",
+    addCardTitle: "Neue Karte hinzufügen",
+    addCardBtn: "Karte hinzufügen",
+    exportBtn: "Exportieren",
+    statsTitle: "Statistik",
+    freshBtn: "+7",
+    noCards: "Keine Karten",
+    modeLearn: "→ Prüfen",
+    modeTest: "→ Lernen"
+  },
+  en: {
+    title: "Vocabulary Trainer",
+    toolsTitle: "Tools",
+    deckLabel: "Deck:",
+    langLabel: "UI Language:",
+    addCardTitle: "Add New Card",
+    addCardBtn: "Add Card",
+    exportBtn: "Export",
+    statsTitle: "Statistics",
+    freshBtn: "+7",
+    noCards: "No cards",
+    modeLearn: "→ Test",
+    modeTest: "→ Learn"
+  },
+  sv: {
+    title: "Ordkortstränare",
+    toolsTitle: "Verktyg",
+    deckLabel: "Kortlek:",
+    langLabel: "UI-språk:",
+    addCardTitle: "Lägg till nytt kort",
+    addCardBtn: "Lägg till kort",
+    exportBtn: "Exportera",
+    statsTitle: "Statistik",
+    freshBtn: "+7",
+    noCards: "Inga kort",
+    modeLearn: "→ Testa",
+    modeTest: "→ Lära"
+  },
+  es: {
+    title: "Entrenador de Vocabulario",
+    toolsTitle: "Herramientas",
+    deckLabel: "Mazo:",
+    langLabel: "Idioma de UI:",
+    addCardTitle: "Añadir nueva tarjeta",
+    addCardBtn: "Añadir tarjeta",
+    exportBtn: "Exportar",
+    statsTitle: "Estadísticas",
+    freshBtn: "+7",
+    noCards: "Sin tarjetas",
+    modeLearn: "→ Probar",
+    modeTest: "→ Aprender"
+  }
+};
+
+// === Lokale Storage Keys & State ===
 const LS_DECKS = "leitnerDecks";
-const LS_CARDS = "leitnerCards";
+const LS_LANG = "leitnerLang";
 let decks = JSON.parse(localStorage.getItem(LS_DECKS) || "[]");
 if (decks.length === 0) {
   const id = crypto.randomUUID();
@@ -235,11 +304,9 @@ let activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
 let reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
 let learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
 let currentTestBox = 1;
-let mode = "lernen"; // frei-Üben default
+let mode = "lernen";
 let learnIndex = 0;
 let direction = "a2b";
-let lastShownIds = [];
-let combo = 0;
 const batchSizeFresh = 7;
 
 // === DOM Referenzen ===
@@ -255,7 +322,6 @@ const inputSideB = document.getElementById("inputSideB");
 const addCardBtn = document.getElementById("addCardBtn");
 const importFile = document.getElementById("importFile");
 const exportBtn = document.getElementById("exportBtn");
-const landInfo = document.getElementById("landInfo");
 const landInfoText = document.getElementById("landInfoText");
 const freshBtn = document.getElementById("freshBtn");
 const landModeToggle = document.getElementById("landModeToggle");
@@ -287,6 +353,8 @@ function applyLabelInputs(){
   const d = currentDeck();
   sideALabelInput.value = d?.sideALabel || "A";
   sideBLabelInput.value = d?.sideBLabel || "B";
+  inputSideA.placeholder = d.sideALabel;
+  inputSideB.placeholder = d.sideBLabel;
 }
 function refreshCountsUI(){
   buildBoxChart();
@@ -297,14 +365,14 @@ function updateLandInfo(){
   const landscape = window.matchMedia("(orientation: landscape)").matches;
   const countInBox = activeCards.filter(c=>c.box===currentTestBox).length;
   landInfoText.textContent = `B${currentTestBox}: ${countInBox}`;
-  landInfo.style.display = landscape ? "flex" : "none";
-  const drawerIsOpen = drawer.classList.contains('open');
-  const showFresh = (currentTestBox===1) && landscape && !drawerIsOpen;
+  const showFresh = (currentTestBox===1 && landscape && !drawer.classList.contains("open"));
   freshBtn.style.display = showFresh ? "block" : "none";
-  landModeToggle.textContent = (mode==="lernen") ? "→ Prüfen" : "→ Lernen";
+  landModeToggle.textContent = (mode==="lernen")
+    ? translations[currentLang].modeLearn
+    : translations[currentLang].modeTest;
 }
 
-// === Diagramm & Statistik ===
+// === Diagramme ===
 function buildBoxChart(){
   boxChart.innerHTML = "";
   const counts = [];
@@ -319,8 +387,9 @@ function buildBoxChart(){
     bar.title = `Box ${idx+1}: ${count}`;
     bar.addEventListener('click', ()=>{
       currentTestBox = idx+1;
-      mode = (currentTestBox===1) ? "lernen" : "prüfen";
-      saveData(); render(); refreshCountsUI();
+      mode = (currentTestBox===1) ? "lernen" : "prüfen"; // NEU: Auto-Moduswechsel
+      render();
+      refreshCountsUI();
     });
     boxChart.appendChild(bar);
   });
@@ -331,38 +400,30 @@ function drawPieChart(){
   const total = activeCards.length + reserveCards.length + learnedCards.length;
   if(total===0) return;
   const data = [
-    {label:"Aktiv", value: activeCards.length, color:"#3b82f6"},
-    {label:"Reserve", value: reserveCards.length, color:"#f59e0b"},
-    {label:"Gelernt", value: learnedCards.length, color:"#10b981"}
+    {value: activeCards.length, color:"#3b82f6"},
+    {value: reserveCards.length, color:"#f59e0b"},
+    {value: learnedCards.length, color:"#10b981"}
   ];
-  let startAngle = -Math.PI/2;
+  let start = -Math.PI/2;
   data.forEach(seg=>{
     const slice = (seg.value/total)*2*Math.PI;
     ctx.beginPath();
     ctx.moveTo(100,100);
-    ctx.arc(100,100,100,startAngle,startAngle+slice);
+    ctx.arc(100,100,100,start,start+slice);
     ctx.closePath();
     ctx.fillStyle = seg.color;
     ctx.fill();
-    startAngle += slice;
+    start += slice;
   });
 }
-// === Kartenanzeige & Schriftgröße ===
+
+// === Schriftgröße anpassen ===
 function fitTileText(tile, minPx=16){
   let size = 28;
-  const maxLoops = 20;
-  tile.style.fontSize = size + 'px';
-  tile.style.wordBreak = 'keep-all';
-  tile.style.hyphens = 'auto';
-  function overflows(){
-    return tile.scrollHeight > tile.clientHeight + 1 ||
-           tile.scrollWidth > tile.clientWidth + 1;
-  }
-  let loops=0;
-  while(overflows() && size>minPx && loops<maxLoops){
-    size -= 1;
+  tile.style.fontSize = size+'px';
+  while ((tile.scrollHeight > tile.clientHeight || tile.scrollWidth > tile.clientWidth) && size>minPx){
+    size--;
     tile.style.fontSize = size+'px';
-    loops++;
   }
 }
 function fitBothTiles(){
@@ -374,13 +435,13 @@ function fitBothTiles(){
 function render(){
   if(mode==="lernen"){
     const b1 = activeCards.filter(c=>c.box===1);
-    if(b1.length===0){ tileEs.textContent="Keine Karten"; tileDe.textContent=""; return; }
+    if(b1.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
     const card = b1[learnIndex % b1.length];
     tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
     tileDe.textContent = (direction==="a2b") ? card.sideB : card.sideA;
   } else {
     const bx = activeCards.filter(c=>c.box===currentTestBox);
-    if(bx.length===0){ tileEs.textContent="Keine Karten"; tileDe.textContent=""; return; }
+    if(bx.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
     const idx = Math.floor(Math.random()*bx.length);
     const card = bx[idx];
     tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
@@ -389,57 +450,76 @@ function render(){
   fitBothTiles();
 }
 
-// === Neue Karte hinzufügen ===
-addCardBtn.addEventListener("click", ()=>{
-  const A = inputSideA.value.trim();
-  const B = inputSideB.value.trim();
-  if(!A || !B) return;
-  activeCards.push({sideA:A, sideB:B, box:1});
-  inputSideA.value = ""; inputSideB.value = "";
-  saveData(); render(); refreshCountsUI();
+// === Sprache wechseln (NEU) ===
+let currentLang = localStorage.getItem(LS_LANG) || "de";
+langSelect.value = currentLang;
+function applyTranslations(){
+  const t = translations[currentLang];
+  document.getElementById("appTitle").textContent = t.title;
+  document.getElementById("toolsTitle").textContent = t.toolsTitle;
+  document.getElementById("deckLabel").textContent = t.deckLabel;
+  document.getElementById("langLabel").textContent = t.langLabel;
+  document.getElementById("addCardTitle").textContent = t.addCardTitle;
+  document.getElementById("addCardBtn").textContent = t.addCardBtn;
+  document.getElementById("exportBtn").textContent = t.exportBtn;
+  document.getElementById("statsTitle").textContent = t.statsTitle;
+  freshBtn.textContent = t.freshBtn;
+  updateLandInfo();
+}
+langSelect.addEventListener("change", ()=>{
+  currentLang = langSelect.value;
+  localStorage.setItem(LS_LANG, currentLang);
+  applyTranslations();
+  render();
 });
 
-// === Deck Labels speichern ===
+// === Event Listener ===
 saveLabelsBtn.addEventListener("click", ()=>{
   const d = currentDeck(); if(!d) return;
   d.sideALabel = sideALabelInput.value.trim() || "A";
   d.sideBLabel = sideBLabelInput.value.trim() || "B";
   saveData();
   directionBadge.textContent = dirText();
-  toggleDirectionBtn.textContent = dirText();
-  inputSideA.placeholder = d.sideALabel;
-  inputSideB.placeholder = d.sideBLabel;
+  applyLabelInputs();
 });
 
-// === Richtung umschalten ===
 toggleDirectionBtn.addEventListener("click", ()=>{
   direction = (direction==="a2b") ? "b2a" : "a2b";
   directionBadge.textContent = dirText();
   render();
 });
 
-// === +7 Button ===
+addCardBtn.addEventListener("click", ()=>{
+  const A = inputSideA.value.trim();
+  const B = inputSideB.value.trim();
+  if(!A || !B) return;
+  activeCards.push({sideA:A, sideB:B, box:1});
+  inputSideA.value=""; inputSideB.value="";
+  saveData();
+  render();
+  refreshCountsUI();
+});
+
 freshBtn.addEventListener("click", ()=>{
   const take = Math.min(batchSizeFresh, reserveCards.length);
   const added = reserveCards.splice(0, take).map(c=>({...c, box:1}));
   activeCards.push(...added);
-  mode = "lernen";
+  mode = "lernen"; // NEU: sofort auf Lernen schalten
   learnIndex = activeCards.filter(c=>c.box===1).length - added.length;
   saveData();
-  render(); refreshCountsUI();
+  render();
+  refreshCountsUI();
 });
 
-// === Modus Toggle im Querformat ===
 landModeToggle.addEventListener("click", ()=>{
   mode = (mode==="lernen") ? "prüfen" : "lernen";
-  render(); refreshCountsUI();
+  render();
+  refreshCountsUI();
 });
 
-// === Drawer Steuerung ===
 drawerToggle.addEventListener("click", ()=>{ drawer.classList.add("open"); updateLandInfo(); });
 drawerClose.addEventListener("click", ()=>{ drawer.classList.remove("open"); updateLandInfo(); });
 
-// === Import / Export ===
 exportBtn.addEventListener("click", ()=>{
   const data = {activeCards, reserveCards, learnedCards};
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
@@ -464,6 +544,19 @@ importFile.addEventListener("change", e=>{
   reader.readAsText(file);
 });
 
+deckSelect.addEventListener("change", ()=>{
+  currentDeckId = deckSelect.value;
+  activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
+  reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
+  learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
+  applyLabelInputs();
+  directionBadge.textContent = dirText();
+  saveData(); render(); refreshCountsUI();
+});
+
+window.addEventListener("resize", refreshCountsUI);
+window.addEventListener("orientationchange", ()=>setTimeout(refreshCountsUI,100));
+
 // === Init ===
 function init(){
   deckSelect.innerHTML = "";
@@ -475,25 +568,10 @@ function init(){
   deckSelect.value = currentDeckId;
   applyLabelInputs();
   directionBadge.textContent = dirText();
-  inputSideA.placeholder = currentDeck().sideALabel;
-  inputSideB.placeholder = currentDeck().sideBLabel;
-  render(); refreshCountsUI();
+  applyTranslations();
+  render();
+  refreshCountsUI();
 }
-deckSelect.addEventListener("change", ()=>{
-  currentDeckId = deckSelect.value;
-  activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
-  reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
-  learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
-  applyLabelInputs();
-  directionBadge.textContent = dirText();
-  inputSideA.placeholder = currentDeck().sideALabel;
-  inputSideB.placeholder = currentDeck().sideBLabel;
-  saveData(); render(); refreshCountsUI();
-});
-
-window.addEventListener("resize", refreshCountsUI);
-window.addEventListener("orientationchange", ()=>setTimeout(refreshCountsUI,100));
-
 init();
 </script>
 </body>
