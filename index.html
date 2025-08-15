@@ -1,578 +1,788 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vokabeltrainer</title>
-
+<meta charset="UTF-8" />
+<title>Vokabeltrainer – Mobile (Blocks, Freies Üben, Gamification)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b3d8f">
+<link rel="manifest" href="manifest.webmanifest?v=5">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <style>
-/* === Grundstyles === */
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #f9fafb;
-  color: #111827;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-header {
-  position: relative;
-  padding: 8px;
-  background: #111827;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#appTitle { margin: 0; font-size: 1.2rem; }
+  :root{
+    --card-max-w: 94vw; --card-max-h: 62svh;
+    --card-font: clamp(22px, 6vw, 36px);
+    --tile-font: clamp(18px, 4.8vw, 30px);
+    --radius: 16px;
+  }
+  @supports not (height: 1svh){ :root{ --card-max-h: 62vh; } }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ margin:0; background:#f5f7fb; display:flex; flex-direction:column; align-items:center; padding:16px; -webkit-tap-highlight-color:transparent; }
+  body.learn-mode{ font-family:Georgia, "Times New Roman", serif; background:#f7f4ee; }
+  body.test-mode{ font-family:Arial, Helvetica, sans-serif; background:#f5f7fb; }
 
-/* Querformat-Infofeld */
-#landInfo {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
-  background: #2563eb;
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  z-index: 50;
-}
-@media (orientation:portrait){ #landInfo { display:none; } }
+  header{ width:min(100%,1100px); display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:center; margin-bottom:8px; }
+  h1{ margin:0; font-size:20px; }
+  .badge{ padding:6px 10px; border-radius:999px; font-size:13px; }
+  #modeIndicator{ background:#e7eefc; color:#1b3d8f; } body.learn-mode #modeIndicator{ background:#efe6d5; color:#6f4d1d; }
+  #boxBadge{ background:#ffe9ee; color:#8f1b2b; }
+  #directionBadge{ background:#f1e8ff; color:#5a2ea6; }
 
-/* +7 Button */
-#freshBtn {
-  position: fixed;
-  right: calc(12px + env(safe-area-inset-right));
-  top: calc(48px + env(safe-area-inset-top));
-  z-index: 50;
-  padding: 4px 8px; /* NEU: kleiner gemacht */
-  border: none;
-  border-radius: 8px;
-  background: #10b981;
-  color: #fff;
-  font-size: 0.8rem;
-  display: none;
-}
-@media (orientation:portrait){ #freshBtn { display:none !important; } }
+  /* Gamification Topbar */
+  .gbar{ width:min(100%,1100px); display:flex; gap:10px; align-items:center; margin:6px 0 10px; flex-wrap:wrap; }
+  .chip{ background:#111827; color:#fff; border-radius:999px; padding:6px 10px; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .chip span{ font-weight:700; }
 
-/* Toggle Button */
-#landModeToggle {
-  position: fixed;
-  right: calc(12px + env(safe-area-inset-right));
-  top: calc(84px + env(safe-area-inset-top));
-  z-index: 50;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: #111827;
-  color: #fff;
-  border: 0;
-  font-size: 14px;
-  display: none;
-}
-@media (orientation:landscape){ #landModeToggle{ display:block; } }
-@media (orientation:portrait){ #landModeToggle{ display:none; } }
+  .progress{ width:min(100%,1100px); background:#eef2f7; border-radius:999px; height:10px; overflow:hidden; margin:4px 0 10px; }
+  .progress>div{ height:100%; width:0%; background:linear-gradient(90deg,#61c454,#1aa34a); transition:width .25s; }
+  .progress-label{ width:min(100%,1100px); display:flex; justify-content:space-between; font-size:12px; opacity:.8; }
 
-/* Main Area */
-#mainArea {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
+  .stage{ width:min(100%,1100px); display:grid; grid-template-columns:1fr; gap:14px; }
 
-/* Karteikarten */
-.tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 90%;
-  height: 40%;
-  margin: 10px auto;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  padding: 8px;
-  text-align: center;
-  font-size: 28px;
-  overflow-wrap: break-word;
-}
-#tileEs { background: #dbeafe; }
-#tileDe { background: #fef3c7; }
+  .card{
+    width:min(var(--card-max-w),720px); height:var(--card-max-h);
+    background:#fff; border-radius:var(--radius); box-shadow:0 8px 20px rgba(0,0,0,.08);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:var(--card-font); padding:22px; margin:10px auto; user-select:none; word-break:keep-all; overflow-wrap:anywhere;
+  }
+  .pair{ width:min(var(--card-max-w),720px); display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 auto; }
+  .tile{ border-radius:var(--radius); box-shadow:0 8px 20px rgba(0,0,0,.08); padding:18px; min-height:calc(var(--card-max-h)/2.4); display:flex; align-items:center; justify-content:center; text-align:center; font-size:var(--tile-font); word-break:keep-all; overflow-wrap:anywhere; }
+  .tile.es{ background:#fff7e9; } .tile.de{ background:#eaf4ff; }
 
-/* Box Chart */
-#boxChart {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  width: 100%;
-  height: 100px;
-  background: #e5e7eb;
-}
-.bar {
-  flex: 1;
-  margin: 0 2px;
-  background: #3b82f6;
-  min-height: 5px;
-  cursor: pointer; /* NEU: Klickbar */
-}
+  .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:6px 0 8px; position:sticky; bottom:calc(10px + env(safe-area-inset-bottom,0px)); padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
+  button{ padding:14px 18px; font-size:16px; border:0; border-radius:12px; cursor:pointer; min-height:44px; min-width:44px; background:#1b3d8f; color:#fff; }
+  .secondary{ background:#6b7280; } .success{ background:#176427; } .danger{ background:#8f1b2b; } .ghost{ background:#e5e7eb; color:#111827; } .pill{ border-radius:999px; }
 
-/* Drawer Panel */
-.drawer {
-  position: fixed;
-  top: 0; right: -100%;
-  width: 80%;
-  max-width: 320px;
-  height: 100%;
-  background: #fff;
-  box-shadow: -2px 0 6px rgba(0,0,0,0.2);
-  padding: 16px;
-  transition: right 0.3s;
-  overflow-y: auto;
-  z-index: 100;
-}
-.drawer.open { right: 0; }
-#drawerClose {
-  position: absolute;
-  top: 8px; right: 8px;
-  background: none; border: none; font-size: 24px;
-}
-.row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-.pill { border: none; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
-input, select, button { font-size: 1rem; }
+  #testActions{ display:none; gap:10px; justify-content:center; }
+  #testActions button{ min-width:120px; }
 
-/* Vorschau-Placeholder (NEU) */
-.placeholder {
-  color: #9ca3af;
-  font-style: italic;
-}
+  .drawer-toggle{ position:fixed; bottom:18px; right:18px; z-index:30; }
+  .drawer{ position:fixed; top:0; right:-380px; width:360px; height:100vh; background:#fff; box-shadow:-16px 0 32px rgba(0,0,0,.08); z-index:25; transition:right .25s; padding:14px; overflow:auto; }
+  .drawer.open{ right:0; }
+  .panel{ background:#fff; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); padding:12px; margin-bottom:12px; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input[type="text"], select, textarea{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; width:100%; }
+  textarea{ min-height:90px; resize:vertical; }
 
-/* Pie Chart */
-#pieChart { display: block; margin: 16px auto; }
+  .table-wrap{ max-height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; }
+  table{ width:100%; border-collapse:collapse; font-size:14px; } th,td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
+  thead th{ position:sticky; top:0; background:#f9fbff; z-index:1; }
 
-/* Drawer Toggle Button */
-#drawerToggle {
-  position: fixed;
-  bottom: 12px;
-  right: 12px;
-  z-index: 200;
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
-}
+  .toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:#111827; color:#fff; padding:10px 14px; border-radius:999px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:60; }
+  .toast.show{ opacity:0.98; transform:translateX(-50%) translateY(-4px); }
+
+  /* Querformat: fast Fullscreen mit kleinem Rand + Safe-Area */
+  @media (orientation:landscape){
+    header, .progress, .progress-label, .drawer-toggle, .controls.global, .drawer, .gbar { display:none !important; }
+    body { padding: 0; }
+    .card, .pair{
+      width: calc(100vw - 4vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+      height: calc(100vh - 4vw - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      max-width:none; max-height:none; margin: 2vw;
+    }
+    .card{ font-size: clamp(28px, 7vw, 50px); }
+    .tile{ font-size: clamp(24px, 5.5vw, 44px); }
+    #landscapeBadge{ 
+      display:flex; position:fixed; 
+      left: calc(12px + env(safe-area-inset-left)); 
+      bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+  }
+  @media (max-width:520px){
+    header{ grid-template-columns: 1fr auto auto; gap:6px; }
+    .progress-label{ display:none; }
+    .drawer{ width:92vw; right:-92vw; }
+    .drawer.open{ right:0; }
+  }
+
+  #landscapeBadge{
+    display:none; width:42px; height:42px; border-radius:50%; background:#111827; color:#fff;
+    align-items:center; justify-content:center; font-size:13px; opacity:.85; z-index:40;
+  }
+
+  /* Edit-Panel im Portrait: große Textareas */
+  #editPanel{ display:none; padding:10px; gap:8px; justify-content:center; flex-direction:column; }
 </style>
 </head>
-<body>
+<body class="learn-mode">
 
 <header>
-  <h1 id="appTitle">Vokabeltrainer</h1>
-  <div id="landInfo"><span id="landInfoText">B1: 0</span></div>
-  <button id="freshBtn" class="pill">+7</button>
-  <button id="landModeToggle">⇆</button>
+  <h1>Vokabeltrainer</h1>
+  <div id="modeIndicator" class="badge">Lernen</div>
+  <div id="directionBadge" class="badge">ES → DE</div>
+  <div id="boxBadge" class="badge">Box: –</div>
 </header>
 
-<main id="mainArea">
-  <section id="learnPair">
-    <div id="tileEs" class="tile front"></div>
-    <div id="tileDe" class="tile back"></div>
-  </section>
-  <div id="boxChart"></div>
-</main>
+<!-- Gamification Topbar -->
+<div class="gbar">
+  <div class="chip">⭐ Punkte: <span id="pointsChip">0</span></div>
+  <div class="chip">🎚️ Level: <span id="levelChip">1</span></div>
+  <div class="chip">🔥 Streak: <span id="streakChip">0</span>d</div>
+  <div class="chip" id="comboChip" style="display:none;">⚡ Combo: <span id="comboVal">0</span></div>
+</div>
 
-<aside id="drawer" class="drawer">
-  <button id="drawerClose">×</button>
-  <h2 id="toolsTitle">Werkzeuge</h2>
-  <div class="row">
-    <label for="deckSelect" id="deckLabel">Deck:</label>
-    <select id="deckSelect"></select>
+<div class="progress"><div id="progressBar"></div></div>
+<div class="progress-label">
+  <div id="progressText">Fortschritt: 0 / 0 (0%)</div>
+  <div id="completionText"></div>
+</div>
+
+<!-- Globale Controls (nur Portrait) -->
+<div class="controls global">
+  <button id="toggleModeBtn" class="secondary pill">Lernen</button>
+  <button id="editBtn" class="pill">✏️ Bearbeiten</button>
+  <button id="drawerToggle" class="ghost pill">☰ Werkzeug</button>
+</div>
+
+<div class="stage">
+  <main>
+    <!-- LERNMODUS -->
+    <div id="learnPair" class="pair">
+      <div id="tileEs" class="tile es">—</div>
+      <div id="tileDe" class="tile de">—</div>
+    </div>
+
+    <!-- PRÜFMODUS (Zwei-Karten-Flow) -->
+    <div id="testPair" class="pair" style="display:none;">
+      <div id="testLeft" class="tile es">—</div>
+      <div id="testRight" class="tile de">—</div>
+    </div>
+    <div id="testActions" class="controls">
+      <button id="btnWrong" class="danger">❌ Falsch</button>
+      <button id="btnRight" class="success">✅ Richtig</button>
+    </div>
+
+    <!-- Inline-Editor -->
+    <div id="editPanel" class="controls">
+      <textarea id="editEs" placeholder="Spanisch – hier bearbeiten …"></textarea>
+      <textarea id="editDe" placeholder="Deutsch – hier bearbeiten …"></textarea>
+      <div class="row" style="justify-content:center;">
+        <button id="saveEditBtn" class="success">Speichern</button>
+        <button id="cancelEditBtn" class="secondary">Abbrechen</button>
+      </div>
+    </div>
+
+    <div id="metaInfo" style="text-align:center; opacity:.75; font-size:13px;">
+      Box: <span id="metaBox">–</span> • Falsch gezählt: <span id="metaWrong">0</span>
+    </div>
+  </main>
+</div>
+
+<!-- Querformat-Badge -->
+<div id="landscapeBadge">B1</div>
+
+<!-- Schublade / Werkzeug -->
+<aside class="drawer" id="drawer">
+  <div class="row" style="justify-content:space-between;">
+    <h3>Werkzeuge</h3>
+    <button id="drawerClose" class="ghost pill">Schließen</button>
   </div>
-  <div class="row">
-    <input type="text" id="sideALabelInput" placeholder="A">
-    <input type="text" id="sideBLabelInput" placeholder="B">
-    <button id="saveLabelsBtn" class="pill">✔︎</button>
+
+  <div class="panel">
+    <h3>Decks</h3>
+    <div class="row">
+      <select id="deckSelect"></select>
+      <button id="deckAddBtn" class="pill">➕</button>
+      <button id="deckRenameBtn" class="pill secondary">✏️</button>
+      <button id="deckDeleteBtn" class="pill danger">🗑️</button>
+    </div>
   </div>
-  <div class="row">
-    <label for="langSelect" id="langLabel">UI-Sprache:</label>
-    <select id="langSelect">
-      <option value="de">Deutsch</option>
-      <option value="en">English</option>
-      <option value="sv">Svenska</option>
-      <option value="es">Español</option>
-    </select>
+
+  <div class="panel">
+    <h3>Richtung</h3>
+    <div class="row">
+      <button id="toggleDirectionBtn" class="pill">ES → DE</button>
+    </div>
   </div>
-  <div class="row">
-    <span id="directionBadge">A → B</span>
-    <button id="toggleDirectionBtn" class="pill">⇆</button>
+
+  <div class="panel">
+    <h3>Freies Üben</h3>
+    <div class="row">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="freePracticeChk"> Fälligkeit ignorieren (Box 2–5 + gelernte Box‑1)
+      </label>
+    </div>
   </div>
-  <h3 id="addCardTitle">Neue Karte hinzufügen</h3>
-  <div class="row">
-    <input type="text" id="inputSideA" placeholder="A">
+
+  <div class="panel">
+    <h3>CSV Import (ES,DE)</h3>
+    <input type="file" id="csvFile" accept=".csv">
+    <div style="font-size:12px;opacity:.7">UTF‑8 / Win‑1252 / ISO‑8859‑1; Komma/Semikolon</div>
   </div>
-  <div class="row">
-    <input type="text" id="inputSideB" placeholder="B">
+
+  <div class="panel">
+    <h3>Neue Karte</h3>
+    <div class="row">
+      <input type="text" id="spanish" placeholder="Spanisch">
+      <input type="text" id="german" placeholder="Deutsch">
+      <button id="addCardBtn">Hinzufügen</button>
+    </div>
   </div>
-  <button id="addCardBtn" class="pill">Karte hinzufügen</button>
-  <div class="row">
-    <input type="file" id="importFile" accept=".json">
-    <button id="exportBtn" class="pill">Exportieren</button>
+
+  <div class="panel">
+    <h3>Statistik</h3>
+    <table id="statsTable">
+      <tr><th>Box</th><th>Karten</th><th>Fällig</th><th>Nächstes</th></tr>
+    </table>
+    <div id="heatWrap" style="margin-top:8px;font-size:12px;opacity:.8;"></div>
   </div>
-  <h3 id="statsTitle">Statistik</h3>
-  <canvas id="pieChart" width="200" height="200"></canvas>
+
+  <div class="panel">
+    <h3>Alle Karten</h3>
+    <div class="row" style="margin-bottom:8px;">
+      <input type="text" id="searchInput" placeholder="Suchen … (ES/DE)">
+      <select id="listSortSelect">
+        <option value="boxdesc">Box ↓</option>
+        <option value="wrongdesc">Schwierigkeit ↓</option>
+        <option value="alphaes">Spanisch A–Z</option>
+        <option value="alphade">Deutsch A–Z</option>
+      </select>
+      <label style="font-size:12px;"><input type="checkbox" id="showReserveChk"> Reserve</label>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Spanisch</th><th>Deutsch</th><th>Box</th><th>Falsch</th><th>Zuletzt</th><th>Aktion</th></tr></thead>
+        <tbody id="cardsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Verwalten</h3>
+    <div class="row">
+      <button id="deleteBtn" class="danger">Aktive Karte löschen</button>
+      <button id="resetProgressBtn" class="secondary">Nur Fortschritt</button>
+      <button id="resetAllBtn" class="danger">Alles löschen</button>
+    </div>
+  </div>
+
+  <div class="panel" style="font-size:12px; opacity:.85">
+    <div>Neue Karten kommen in <b>5er‑Blöcken</b> aus dem Pool und werden zuerst im <b>Lernmodus</b> eingeführt. Prüfmodus zeigt <b>nur gelernte</b> Karten.</div>
+  </div>
 </aside>
 
-<button id="drawerToggle">☰</button>
+<div id="toast" class="toast"></div>
 
-<!-- JavaScript folgt in Teil 2 -->
 <script>
-// === Sprachdaten (NEU) ===
-const translations = {
-  de: {
-    title: "Vokabeltrainer",
-    toolsTitle: "Werkzeuge",
-    deckLabel: "Deck:",
-    langLabel: "UI-Sprache:",
-    addCardTitle: "Neue Karte hinzufügen",
-    addCardBtn: "Karte hinzufügen",
-    exportBtn: "Exportieren",
-    statsTitle: "Statistik",
-    freshBtn: "+7",
-    noCards: "Keine Karten",
-    modeLearn: "→ Prüfen",
-    modeTest: "→ Lernen"
-  },
-  en: {
-    title: "Vocabulary Trainer",
-    toolsTitle: "Tools",
-    deckLabel: "Deck:",
-    langLabel: "UI Language:",
-    addCardTitle: "Add New Card",
-    addCardBtn: "Add Card",
-    exportBtn: "Export",
-    statsTitle: "Statistics",
-    freshBtn: "+7",
-    noCards: "No cards",
-    modeLearn: "→ Test",
-    modeTest: "→ Learn"
-  },
-  sv: {
-    title: "Ordkortstränare",
-    toolsTitle: "Verktyg",
-    deckLabel: "Kortlek:",
-    langLabel: "UI-språk:",
-    addCardTitle: "Lägg till nytt kort",
-    addCardBtn: "Lägg till kort",
-    exportBtn: "Exportera",
-    statsTitle: "Statistik",
-    freshBtn: "+7",
-    noCards: "Inga kort",
-    modeLearn: "→ Testa",
-    modeTest: "→ Lära"
-  },
-  es: {
-    title: "Entrenador de Vocabulario",
-    toolsTitle: "Herramientas",
-    deckLabel: "Mazo:",
-    langLabel: "Idioma de UI:",
-    addCardTitle: "Añadir nueva tarjeta",
-    addCardBtn: "Añadir tarjeta",
-    exportBtn: "Exportar",
-    statsTitle: "Estadísticas",
-    freshBtn: "+7",
-    noCards: "Sin tarjetas",
-    modeLearn: "→ Probar",
-    modeTest: "→ Aprender"
+/* ===== Helpers & Setup ===== */
+function setVH(){ const vh=window.innerHeight*0.01; document.documentElement.style.setProperty('--vh', vh+'px'); }
+addEventListener('resize', setVH); setVH();
+
+const LS_DECKS="leitnerDecks";
+function uuid(){ return Math.random().toString(36).slice(2,10); }
+function cryptoId(){ return Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2); }
+const todayKey = ()=> new Date().toISOString().slice(0,10);
+
+/* ===== Deck/Zustand laden ===== */
+let decks=JSON.parse(localStorage.getItem(LS_DECKS)||"[]");
+if(decks.length===0){ const id=uuid(); decks=[{id,name:"Spanisch ES→DE"}]; localStorage.setItem(LS_DECKS,JSON.stringify(decks)); }
+let currentDeckId=localStorage.getItem("leitnerCurrentDeck")||decks[0].id;
+function deckKey(k){ return `${k}_${currentDeckId}`; }
+
+/* ===== Leitner-Config ===== */
+const boxLimits=[20,20,20,20,20];
+const boxIntervals=[1,2,4,9,14];
+const batchSize=5;
+
+/* ===== Daten ===== */
+let activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
+let reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[];
+let learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
+let mode="lernen";
+let direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
+let testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
+let freePractice = JSON.parse(localStorage.getItem(deckKey("freePractice") )||"false");
+
+/* Gamification */
+let points = parseInt(localStorage.getItem(deckKey("points"))||"0",10);
+let level  = parseInt(localStorage.getItem(deckKey("level"))||"1",10);
+let streak = parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
+let lastActivityDate = localStorage.getItem(deckKey("lastActivityDate"))||null;
+let achievements = JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
+let dayCounts = JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}"); // {"YYYY-MM-DD": n}
+let combo=0;
+
+function ensureSeed(){
+  if(activeCards.length===0&&reserveCards.length===0&&learnedCards.length===0){
+    activeCards=[{id:cryptoId(),es:"hola",de:"hallo",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"adiós",de:"auf Wiedersehen",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"gracias",de:"danke",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"por favor",de:"bitte",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"sí",de:"ja",box:1,lastSeen:null,wrong:0,introduced:true},
+                 {id:cryptoId(),es:"no",de:"nein",box:1,lastSeen:null,wrong:0,introduced:true}];
+    saveData();
   }
+}
+[activeCards,reserveCards,learnedCards].forEach(arr=>arr.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoId(); if(typeof c.introduced!=="boolean") c.introduced=false; }));
+
+ensureSeed();
+
+/* ===== DOM ===== */
+const body=document.body;
+const modeIndicator=document.getElementById("modeIndicator");
+const directionBadge=document.getElementById("directionBadge");
+const boxBadge=document.getElementById("boxBadge");
+const progressBar=document.getElementById("progressBar"), progressText=document.getElementById("progressText"), completionText=document.getElementById("completionText");
+const tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe");
+const learnPair=document.getElementById("learnPair");
+const testPair=document.getElementById("testPair"), testLeft=document.getElementById("testLeft"), testRight=document.getElementById("testRight"), testActions=document.getElementById("testActions");
+const btnRight=document.getElementById("btnRight"), btnWrong=document.getElementById("btnWrong");
+
+const toggleModeBtn=document.getElementById("toggleModeBtn");
+const editBtn=document.getElementById("editBtn");
+const editPanel=document.getElementById("editPanel"), editEs=document.getElementById("editEs"), editDe=document.getElementById("editDe"), saveEditBtn=document.getElementById("saveEditBtn"), cancelEditBtn=document.getElementById("cancelEditBtn");
+
+const drawer=document.getElementById("drawer"), drawerToggle=document.getElementById("drawerToggle"), drawerClose=document.getElementById("drawerClose");
+const toggleDirectionBtn=document.getElementById("toggleDirectionBtn");
+const freePracticeChk=document.getElementById("freePracticeChk");
+
+const deckSelect=document.getElementById("deckSelect"), deckAddBtn=document.getElementById("deckAddBtn"), deckRenameBtn=document.getElementById("deckRenameBtn"), deckDeleteBtn=document.getElementById("deckDeleteBtn");
+const csvFileInput=document.getElementById("csvFile"), addCardBtn=document.getElementById("addCardBtn");
+const statsTable=document.getElementById("statsTable");
+const resetProgressBtn=document.getElementById("resetProgressBtn"), resetAllBtn=document.getElementById("resetAllBtn"), deleteBtn=document.getElementById("deleteBtn");
+const cardsTable=document.getElementById("cardsTable"), searchInput=document.getElementById("searchInput"), listSortSelect=document.getElementById("listSortSelect"), showReserveChk=document.getElementById("showReserveChk");
+const metaBox=document.getElementById("metaBox"), metaWrong=document.getElementById("metaWrong");
+const landscapeBadge=document.getElementById("landscapeBadge");
+const toastEl=document.getElementById("toast");
+const pointsChip=document.getElementById("pointsChip"), levelChip=document.getElementById("levelChip"), streakChip=document.getElementById("streakChip");
+const comboChip=document.getElementById("comboChip"), comboVal=document.getElementById("comboVal");
+const directionTxt=()=> direction==="es2de" ? "ES → DE" : "DE → ES";
+
+/* ===== Utils ===== */
+function saveData(){
+  localStorage.setItem(deckKey("leitnerActive"),JSON.stringify(activeCards));
+  localStorage.setItem(deckKey("leitnerReserve"),JSON.stringify(reserveCards));
+  localStorage.setItem(deckKey("leitnerLearned"),JSON.stringify(learnedCards));
+  localStorage.setItem(deckKey("leitnerDirection"),direction);
+  localStorage.setItem(deckKey("leitnerTestOrder"),testOrder);
+  localStorage.setItem(deckKey("points"), points);
+  localStorage.setItem(deckKey("level"), level);
+  localStorage.setItem(deckKey("streak"), streak);
+  localStorage.setItem(deckKey("achievements"), JSON.stringify(achievements));
+  localStorage.setItem(deckKey("lastActivityDate"), lastActivityDate||"");
+  localStorage.setItem(deckKey("dayCounts"), JSON.stringify(dayCounts));
+  localStorage.setItem(deckKey("freePractice"), JSON.stringify(freePractice));
+}
+function saveDecks(){ localStorage.setItem(LS_DECKS,JSON.stringify(decks)); localStorage.setItem("leitnerCurrentDeck",currentDeckId); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+function daysBetween(a,b){ return Math.floor((a-b)/(1000*60*60*24)); }
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); setTimeout(()=>toastEl.classList.remove("show"), 1400); }
+function vibrate(ms=15){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
+function getDueCards(){
+  if(freePractice){
+    // freie Übung: alle Box 2–5 + Box1 nur, wenn introduced
+    return activeCards.filter(c=> c.box>=2 || (c.box===1 && c.introduced===true));
+  }
+  const today=new Date();
+  return activeCards.filter(card=>{
+    // Box1: nur gelernte/introduzierte Karten prüfen (d. h. bereits im Lernmodus gesehen)
+    if(card.box===1 && !card.introduced) return false;
+    if(card.lastSeen===null) return true;
+    return daysBetween(today,new Date(card.lastSeen))>=boxIntervals[card.box-1];
+  });
+}
+
+/* ===== Block-Nachschub (nur im Lernmodus) ===== */
+function fillBox1InBatchesIfNeeded(){
+  const b1=activeCards.filter(c=>c.box===1).length;
+  if(b1===0 && reserveCards.length>0){
+    const take = Math.min(batchSize, reserveCards.length);
+    const add = reserveCards.splice(0, take);
+    add.forEach(c=>{ c.box=1; c.lastSeen=null; c.wrong=c.wrong||0; c.introduced=false; c.id=c.id||cryptoId(); });
+    activeCards.push(...add); saveData();
+    toast(`🆕 ${take} neue Karten – bitte zuerst lernen`);
+  }
+}
+
+/* ===== Fortschritt / Stats ===== */
+function totals(){ const total=activeCards.length+reserveCards.length+learnedCards.length; const learned=learnedCards.length; return {total, learned}; }
+function updateProgress(){
+  const {total,learned}=totals();
+  const pct= total? Math.round((learned/total)*100):100;
+  progressBar.style.width=pct+"%";
+  progressText.textContent=`Fortschritt: ${learned} / ${total} (${pct}%)`;
+  completionText.textContent=(activeCards.length===0&&reserveCards.length===0&&total>0)?"Übung abgeschlossen 🎉":"";
+}
+function updateStats(){
+  statsTable.innerHTML=`<tr><th>Box</th><th>Karten</th><th>Fällig</th><th>Nächstes</th></tr>`;
+  const dueAll=getDueCards();
+  for(let b=1;b<=5;b++){
+    const inBox=activeCards.filter(c=>c.box===b);
+    const due=dueAll.filter(c=>c.box===b).length;
+    let next="-";
+    if(inBox.length){
+      const ds=inBox.map(c=>{ if(!c.lastSeen) return new Date(0); const d=new Date(c.lastSeen); d.setDate(d.getDate()+boxIntervals[b-1]); return d; });
+      const soonest=new Date(Math.min(...ds.map(d=>d.getTime())));
+      next=soonest.getTime()>0?soonest.toLocaleDateString():"heute";
+    }
+    statsTable.insertAdjacentHTML("beforeend",`<tr><td>${b}</td><td>${inBox.length}</td><td>${due}</td><td>${next}</td></tr>`);
+  }
+  buildHeat();
+}
+function buildHeat(){
+  // kleine „Heatmap“ als Liste der letzten 14 Tage
+  const wrap=document.getElementById("heatWrap");
+  const days=14, out=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    const n=dayCounts[key]||0;
+    const shade = n===0 ? "#e5e7eb" : n<5 ? "#bbf7d0" : n<15 ? "#86efac" : "#22c55e";
+    out.push(`<span title="${key}: ${n}" style="display:inline-block;width:12px;height:12px;background:${shade};border-radius:3px;margin:2px;"></span>`);
+  }
+  wrap.innerHTML = `<div style="margin-top:6px;">Aktivität (14T): ${out.join("")}</div>`;
+}
+
+/* ===== Gamification ===== */
+function addPointsFor(card, correct=true){
+  if(!correct) { combo=0; comboChip.style.display="none"; return; }
+  const inc = Math.max(1, Math.min(5, card.box));
+  points += inc;
+  combo += 1;
+  if(combo>=2){ comboChip.style.display="flex"; comboVal.textContent=combo; }
+  // Level up pro 100 Punkte
+  const newLevel = Math.max(1, Math.floor(points/100) + 1);
+  if(newLevel>level){ level=newLevel; toast(`🎚️ Level ${level} erreicht!`); }
+  // Achievements
+  function unlock(id, msg){ if(!achievements.includes(id)){ achievements.push(id); toast(msg); } }
+  if(points>=100) unlock("p100","🏆 100 Punkte");
+  if(points>=500) unlock("p500","🏆 500 Punkte");
+}
+function markActivity(){
+  const today=todayKey();
+  if(lastActivityDate!==today){
+    // Streak-Logik
+    if(lastActivityDate){
+      const d1=new Date(lastActivityDate), d2=new Date(today);
+      const diff=Math.round((d2-d1)/(1000*60*60*24));
+      if(diff===1) streak+=1;
+      else streak=1;
+    }else{ streak=1; }
+    lastActivityDate=today;
+  }
+  dayCounts[today]=(dayCounts[today]||0)+1;
+  saveData(); updateGamification();
+}
+function updateGamification(){
+  pointsChip.textContent=points;
+  levelChip.textContent=level;
+  streakChip.textContent=streak;
+}
+
+/* ===== Render / Auswahl ===== */
+let currentCard=null, testPhase="prompt";
+let learnOrder=[], learnIndex=0;
+
+function rebuildLearnOrder(){
+  // nur Box1 – alle, auch noch nicht eingeführte; Reihenfolge gemischt
+  const pool = activeCards.filter(c=>c.box===1);
+  learnOrder = pool.map(c=>c.id);
+  shuffle(learnOrder);
+  learnIndex = 0;
+}
+function getLearnCard(){
+  if(learnOrder.length===0) rebuildLearnOrder();
+  const idsInBox1 = new Set(activeCards.filter(c=>c.box===1).map(c=>c.id));
+  learnOrder = learnOrder.filter(id => idsInBox1.has(id));
+  if(learnOrder.length===0){ fillBox1InBatchesIfNeeded(); rebuildLearnOrder(); }
+  if(learnOrder.length===0) return null;
+  if(learnIndex<0) learnIndex=0;
+  if(learnIndex>=learnOrder.length) learnIndex=learnOrder.length-1;
+  const id = learnOrder[learnIndex];
+  return activeCards.find(c=>c.id===id) || null;
+}
+function renderLearn(){
+  const card = getLearnCard();
+  currentCard = card;
+  if(!card){
+    tileEs.textContent="—"; tileDe.textContent="Keine Karte in Box 1.";
+    updateMeta(); return;
+  }
+  tileEs.textContent=card.es; tileDe.textContent=card.de;
+  // Beim Anzeigen im Lernmodus gilt sie als „eingeführt“
+  if(!card.introduced){ card.introduced=true; saveData(); }
+  updateMeta();
+}
+function pickNextTestCard(){
+  let pool = getDueCards();
+  if(pool.length===0) return null;
+  if(testOrder==="hardest"){ pool.sort((a,b)=>(b.wrong||0)-(a.wrong||0)); return pool[0]; }
+  shuffle(pool); return pool[0];
+}
+function render(){
+  updateGamification(); updateProgress(); updateStats();
+  body.classList.toggle("test-mode", mode==="prüfen");
+  body.classList.toggle("learn-mode", mode==="lernen");
+  modeIndicator.textContent = mode==="prüfen" ? "Prüfen" : "Lernen";
+  toggleModeBtn.textContent = mode==="prüfen" ? "Prüfen" : "Lernen";
+  directionBadge.textContent = directionTxt();
+  document.getElementById("toggleDirectionBtn").textContent = directionTxt();
+  freePracticeChk.checked = !!freePractice;
+
+  if(mode==="lernen"){
+    learnPair.style.display="grid"; testPair.style.display="none"; testActions.style.display="none";
+    renderLearn();
+  }else{
+    learnPair.style.display="none"; testPair.style.display="grid"; testPhase="prompt"; testActions.style.display="none";
+    currentCard = pickNextTestCard();
+    if(!currentCard){
+      testLeft.textContent="—"; testRight.textContent="Nichts zu prüfen.";
+      updateMeta(); return;
+    }
+    const src = (direction==="es2de") ? currentCard.es : currentCard.de;
+    testLeft.textContent = src; testRight.textContent="—";
+    updateMeta();
+  }
+}
+function updateMeta(){
+  const b=currentCard?currentCard.box:"–";
+  document.getElementById("metaBox").textContent=b;
+  document.getElementById("metaWrong").textContent=currentCard?(currentCard.wrong||0):0;
+  boxBadge.textContent="Box: "+b;
+  landscapeBadge.textContent="B"+b;
+}
+
+/* ===== Interaktionen ===== */
+/* Lernmodus Gesten: links=next, rechts=prev, tap=next */
+(function learnGestures(){
+  const area = learnPair;
+  let startX=0, startY=0, dx=0, dy=0, touching=false;
+  const THRESH_X=45, THRESH_Y=60;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY; dx=dy=0; touching=true; }
+  function onMove(e){ if(!touching) return; const t=e.touches?e.touches[0]:e; dx=t.clientX-startX; dy=t.clientY-startY; }
+  function onEnd(){
+    if(!touching) return; touching=false;
+    if(Math.abs(dy) > THRESH_Y) return;
+    if(dx < -THRESH_X){ vibrate(); learnIndex++; renderLearn(); return; }
+    if(dx >  THRESH_X){ vibrate(); learnIndex=Math.max(0,learnIndex-1); renderLearn(); return; }
+    // Tap
+    vibrate(); learnIndex++; renderLearn();
+  }
+  ["touchstart","mousedown"].forEach(ev=> area.addEventListener(ev,onStart,{passive:true}));
+  ["touchmove","mousemove"].forEach(ev=> area.addEventListener(ev,onMove,{passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev=> area.addEventListener(ev,onEnd));
+})();
+
+/* Prüfmodus: Tap zeigt Antwort + Buttons, dann ✅/❌ */
+function revealAnswer(){
+  if(mode!=="prüfen" || !currentCard || testPhase!=="prompt") return;
+  const tgt = (direction==="es2de") ? currentCard.de : currentCard.es;
+  testRight.textContent=tgt; testPhase="answer"; testActions.style.display="flex";
+}
+testPair.addEventListener("click", revealAnswer);
+
+btnRight.addEventListener("click", ()=>{
+  if(mode!=="prüfen"||!currentCard) return;
+  vibrate();
+  addPointsFor(currentCard, true);
+  markActivity();
+  if(currentCard.box===5){
+    const i=activeCards.indexOf(currentCard); if(i>=0) activeCards.splice(i,1);
+    learnedCards.push({...currentCard, learnedAt:new Date().toISOString()});
+    // Achievement: 100 Karten gelernt
+    const totalLearned = learnedCards.length;
+    if(totalLearned>=100 && !achievements.includes("l100")){ achievements.push("l100"); toast("🏆 100 Karten gelernt"); }
+  }else{
+    const next=currentCard.box+1;
+    const nextCount=activeCards.filter(c=>c.box===next).length;
+    if(nextCount<boxLimits[next-1]) currentCard.box=next;
+    currentCard.lastSeen=new Date().toISOString();
+  }
+  saveData(); render();
+});
+btnWrong.addEventListener("click", ()=>{
+  if(mode!=="prüfen"||!currentCard) return;
+  vibrate(); addPointsFor(currentCard,false); markActivity();
+  currentCard.box=Math.max(1, currentCard.box-1);
+  currentCard.wrong=(currentCard.wrong||0)+1;
+  currentCard.lastSeen=new Date().toISOString();
+  saveData(); render();
+});
+
+/* Editor (große Textareas mit Autoresize beim Eingeben) */
+function autoResize(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+4)+'px'; }
+editEs.addEventListener('input', ()=>autoResize(editEs));
+editDe.addEventListener('input', ()=>autoResize(editDe));
+
+editBtn.addEventListener("click", ()=>{
+  if(!currentCard) return;
+  editPanel.style.display = (editPanel.style.display==="none"||editPanel.style.display==="") ? "flex" : "none";
+  editEs.value=currentCard.es; editDe.value=currentCard.de; autoResize(editEs); autoResize(editDe); editEs.focus();
+});
+cancelEditBtn.addEventListener("click", ()=>{ editPanel.style.display="none"; });
+saveEditBtn.addEventListener("click", ()=>{
+  if(!currentCard) return;
+  const newEs=editEs.value.trim(), newDe=editDe.value.trim();
+  if(!newEs || !newDe){ alert("Bitte beide Felder ausfüllen."); return; }
+  const dup = activeCards.some(c=>c!==currentCard && c.es===newEs)
+           || reserveCards.some(c=>c.es===newEs)
+           || learnedCards.some(c=>c.es===newEs);
+  if(dup){ alert("Es existiert bereits eine Karte mit derselben spanischen Seite."); return; }
+  currentCard.es=newEs; currentCard.de=newDe;
+  saveData(); editPanel.style.display="none"; toast("Gespeichert ✅"); render();
+});
+
+/* Drawer */
+document.getElementById("drawerToggle").onclick=()=>{ drawer.classList.toggle("open"); };
+drawerClose.onclick=()=> drawer.classList.remove("open");
+
+/* Richtung */
+document.getElementById("toggleDirectionBtn").onclick=()=>{ direction=(direction==="es2de")?"de2es":"es2de"; saveData(); render(); };
+
+/* Freies Üben */
+freePracticeChk.addEventListener("change", ()=>{ freePractice=freePracticeChk.checked; saveData(); toast(freePractice?"Freies Üben: an":"Freies Üben: aus"); render(); });
+
+/* CSV Import */
+csvFileInput.addEventListener("change",(ev)=>{
+  const file=ev.target.files[0]; if(!file) return;
+  const rdr=new FileReader();
+  rdr.onload=e=>{
+    const buf=e.target.result;
+    const decs=[new TextDecoder("utf-8"), new TextDecoder("windows-1252"), new TextDecoder("iso-8859-1")];
+    let text="", used="utf-8";
+    for(const d of decs){ const t=d.decode(buf); const bad=(t.match(/\uFFFD/g)||[]).length; if(bad===0){ text=t; used=d.encoding||used; break; } if(!text) text=t; }
+    const lines=text.split(/\r?\n/); let imported=0;
+    for(const raw of lines){
+      if(!raw.trim()) continue;
+      const sep=(raw.includes(";")&&(!raw.includes(",")||raw.indexOf(";")<raw.indexOf(",")))?";":",";
+      const parts=raw.split(sep); if(parts.length<2) continue;
+      let es=parts[0]?.trim().replace(/^"(.*)"$/,'$1'); let de=parts[1]?.trim().replace(/^"(.*)"$/,'$1');
+      if(!es||!de) continue;
+      const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
+      if(!exists){ reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false}); imported++; }
+    }
+    saveData(); alert(`Import: ${imported} Einträge (Encoding: ${used})`); render();
+  };
+  rdr.readAsArrayBuffer(file);
+});
+
+/* Add Card */
+addCardBtn.onclick=()=>{
+  const es=document.getElementById("spanish").value.trim();
+  const de=document.getElementById("german").value.trim();
+  if(!es||!de) return;
+  const exists=activeCards.some(c=>c.es===es)||reserveCards.some(c=>c.es===es)||learnedCards.some(c=>c.es===es);
+  if(exists){ alert("Schon vorhanden."); return; }
+  reserveCards.push({id:cryptoId(), es,de,box:1,lastSeen:null,wrong:0,introduced:false});
+  document.getElementById("spanish").value=""; document.getElementById("german").value="";
+  saveData(); toast("Zur Reserve hinzugefügt"); render();
 };
 
-// === Lokale Storage Keys & State ===
-const LS_DECKS = "leitnerDecks";
-const LS_LANG = "leitnerLang";
-let decks = JSON.parse(localStorage.getItem(LS_DECKS) || "[]");
-if (decks.length === 0) {
-  const id = crypto.randomUUID();
-  decks = [{ id, name: "Default", sideALabel: "A", sideBLabel: "B" }];
-  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
-}
-let currentDeckId = localStorage.getItem("leitnerCurrentDeck") || decks[0].id;
-let activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
-let reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
-let learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
-let currentTestBox = 1;
-let mode = "lernen";
-let learnIndex = 0;
-let direction = "a2b";
-const batchSizeFresh = 7;
-
-// === DOM Referenzen ===
-const deckSelect = document.getElementById("deckSelect");
-const sideALabelInput = document.getElementById("sideALabelInput");
-const sideBLabelInput = document.getElementById("sideBLabelInput");
-const saveLabelsBtn = document.getElementById("saveLabelsBtn");
-const langSelect = document.getElementById("langSelect");
-const directionBadge = document.getElementById("directionBadge");
-const toggleDirectionBtn = document.getElementById("toggleDirectionBtn");
-const inputSideA = document.getElementById("inputSideA");
-const inputSideB = document.getElementById("inputSideB");
-const addCardBtn = document.getElementById("addCardBtn");
-const importFile = document.getElementById("importFile");
-const exportBtn = document.getElementById("exportBtn");
-const landInfoText = document.getElementById("landInfoText");
-const freshBtn = document.getElementById("freshBtn");
-const landModeToggle = document.getElementById("landModeToggle");
-const tileEs = document.getElementById("tileEs");
-const tileDe = document.getElementById("tileDe");
-const boxChart = document.getElementById("boxChart");
-const drawer = document.getElementById("drawer");
-const drawerToggle = document.getElementById("drawerToggle");
-const drawerClose = document.getElementById("drawerClose");
-const pieChartCanvas = document.getElementById("pieChart");
-
-// === Hilfsfunktionen ===
-function deckKey(k){ return `${k}_${currentDeckId}`; }
-function currentDeck(){ return decks.find(d=>d.id===currentDeckId) || decks[0]; }
-function saveData(){
-  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
-  localStorage.setItem("leitnerCurrentDeck", currentDeckId);
-  localStorage.setItem(deckKey("cards"), JSON.stringify(activeCards));
-  localStorage.setItem(deckKey("reserve"), JSON.stringify(reserveCards));
-  localStorage.setItem(deckKey("learned"), JSON.stringify(learnedCards));
-}
-function dirText(){
-  const d = currentDeck();
-  const A = d?.sideALabel || "A";
-  const B = d?.sideBLabel || "B";
-  return (direction==="a2b") ? `${A} → ${B}` : `${B} → ${A}`;
-}
-function applyLabelInputs(){
-  const d = currentDeck();
-  sideALabelInput.value = d?.sideALabel || "A";
-  sideBLabelInput.value = d?.sideBLabel || "B";
-  inputSideA.placeholder = d.sideALabel;
-  inputSideB.placeholder = d.sideBLabel;
-}
-function refreshCountsUI(){
-  buildBoxChart();
-  drawPieChart();
-  updateLandInfo();
-}
-function updateLandInfo(){
-  const landscape = window.matchMedia("(orientation: landscape)").matches;
-  const countInBox = activeCards.filter(c=>c.box===currentTestBox).length;
-  landInfoText.textContent = `B${currentTestBox}: ${countInBox}`;
-  const showFresh = (currentTestBox===1 && landscape && !drawer.classList.contains("open"));
-  freshBtn.style.display = showFresh ? "block" : "none";
-  landModeToggle.textContent = (mode==="lernen")
-    ? translations[currentLang].modeLearn
-    : translations[currentLang].modeTest;
-}
-
-// === Diagramme ===
-function buildBoxChart(){
-  boxChart.innerHTML = "";
-  const counts = [];
-  for(let i=1;i<=5;i++){
-    counts.push(activeCards.filter(c=>c.box===i).length);
+/* Löschen */
+deleteBtn.onclick=()=>{
+  if(!currentCard) return;
+  if(!confirm("Möchtest du die aktive Karte wirklich löschen?")) return;
+  const i=activeCards.indexOf(currentCard);
+  if(i>=0) activeCards.splice(i,1); else{
+    const ir=reserveCards.indexOf(currentCard); if(ir>=0) reserveCards.splice(ir,1);
   }
-  const max = Math.max(...counts,1);
-  counts.forEach((count,idx)=>{
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    bar.style.height = (count/max*100)+"%";
-    bar.title = `Box ${idx+1}: ${count}`;
-    bar.addEventListener('click', ()=>{
-      currentTestBox = idx+1;
-      mode = (currentTestBox===1) ? "lernen" : "prüfen"; // NEU: Auto-Moduswechsel
-      render();
-      refreshCountsUI();
-    });
-    boxChart.appendChild(bar);
-  });
-}
-function drawPieChart(){
-  const ctx = pieChartCanvas.getContext("2d");
-  ctx.clearRect(0,0,pieChartCanvas.width,pieChartCanvas.height);
-  const total = activeCards.length + reserveCards.length + learnedCards.length;
-  if(total===0) return;
-  const data = [
-    {value: activeCards.length, color:"#3b82f6"},
-    {value: reserveCards.length, color:"#f59e0b"},
-    {value: learnedCards.length, color:"#10b981"}
-  ];
-  let start = -Math.PI/2;
-  data.forEach(seg=>{
-    const slice = (seg.value/total)*2*Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(100,100);
-    ctx.arc(100,100,100,start,start+slice);
-    ctx.closePath();
-    ctx.fillStyle = seg.color;
-    ctx.fill();
-    start += slice;
-  });
-}
+  saveData(); toast("Gelöscht 🗑️"); render();
+};
 
-// === Schriftgröße anpassen ===
-function fitTileText(tile, minPx=16){
-  let size = 28;
-  tile.style.fontSize = size+'px';
-  while ((tile.scrollHeight > tile.clientHeight || tile.scrollWidth > tile.clientWidth) && size>minPx){
-    size--;
-    tile.style.fontSize = size+'px';
+/* Reset */
+resetProgressBtn.onclick=()=>{ if(!confirm("Nur Lernfortschritt zurücksetzen?")) return;
+  activeCards=activeCards.map(c=>({...c, box:1, lastSeen:null, introduced:false}));
+  saveData(); toast("Fortschritt zurückgesetzt"); render();
+};
+resetAllBtn.onclick=()=>{ if(!confirm("Alle Daten dieser Übung löschen?")) return;
+  localStorage.removeItem(deckKey("leitnerActive"));
+  localStorage.removeItem(deckKey("leitnerReserve"));
+  localStorage.removeItem(deckKey("leitnerLearned"));
+  localStorage.removeItem(deckKey("leitnerDirection"));
+  localStorage.removeItem(deckKey("leitnerTestOrder"));
+  localStorage.removeItem(deckKey("points"));
+  localStorage.removeItem(deckKey("level"));
+  localStorage.removeItem(deckKey("streak"));
+  localStorage.removeItem(deckKey("achievements"));
+  localStorage.removeItem(deckKey("lastActivityDate"));
+  localStorage.removeItem(deckKey("dayCounts"));
+  localStorage.removeItem(deckKey("freePractice"));
+  activeCards=[]; reserveCards=[]; learnedCards=[]; direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  ensureSeed(); saveData(); toast("Neu initialisiert"); render();
+};
+
+/* Decks */
+function rebuildDeckSelect(){
+  deckSelect.innerHTML="";
+  decks.forEach(d=>{ const o=document.createElement("option"); o.value=d.id; o.textContent=d.name+(d.id===currentDeckId?" (aktiv)":""); deckSelect.appendChild(o); });
+  deckSelect.value=currentDeckId;
+}
+rebuildDeckSelect();
+deckSelect.onchange=()=>{ currentDeckId=deckSelect.value; saveDecks();
+  activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive")))||[];
+  reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve")))||[];
+  learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned")))||[];
+  direction=localStorage.getItem(deckKey("leitnerDirection"))||"es2de";
+  testOrder=localStorage.getItem(deckKey("leitnerTestOrder"))||"random";
+  points=parseInt(localStorage.getItem(deckKey("points"))||"0",10);
+  level=parseInt(localStorage.getItem(deckKey("level"))||"1",10);
+  streak=parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
+  achievements=JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
+  lastActivityDate=localStorage.getItem(deckKey("lastActivityDate"))||null;
+  dayCounts=JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}");
+  freePractice=JSON.parse(localStorage.getItem(deckKey("freePractice"))||"false");
+  [activeCards,reserveCards,learnedCards].forEach(arr=>arr.forEach(c=>{ if(typeof c.wrong!=="number") c.wrong=0; if(!c.id) c.id=cryptoId(); if(typeof c.introduced!=="boolean") c.introduced=false; }));
+  render();
+};
+deckAddBtn.onclick=()=>{ const name=prompt("Name der neuen Übung:"); if(!name) return;
+  const id=uuid(); decks.push({id,name}); saveDecks();
+  currentDeckId=id; rebuildDeckSelect();
+  activeCards=[]; reserveCards=[]; learnedCards=[];
+  direction="es2de"; testOrder="random"; points=0; level=1; streak=0; achievements=[]; lastActivityDate=null; dayCounts={}; freePractice=false;
+  ensureSeed(); saveData(); render();
+};
+deckRenameBtn.onclick=()=>{ const deck=decks.find(d=>d.id===currentDeckId); if(!deck) return;
+  const name=prompt("Neuer Name:", deck.name); if(!name) return; deck.name=name; saveDecks(); rebuildDeckSelect();
+};
+deckDeleteBtn.onclick=()=>{ if(decks.length<=1){ alert("Mindestens eine Übung muss bleiben."); return; }
+  const deck=decks.find(d=>d.id===currentDeckId);
+  if(!deck || !confirm(`„${deck.name}“ wirklich löschen?`)) return;
+  // alle Deck-Daten löschen
+  ["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","leitnerTestOrder","points","level","streak","achievements","lastActivityDate","dayCounts","freePractice"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));
+  decks=decks.filter(d=>d.id!==currentDeckId); currentDeckId=decks[0].id; saveDecks(); rebuildDeckSelect(); deckSelect.onchange();
+};
+
+/* Suche/Liste */
+function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+function buildTable(){
+  const q=searchInput.value.trim().toLowerCase(); const incl=showReserveChk.checked;
+  let rows=activeCards.map(c=>({...c,_w:"aktiv"})); if(incl) rows=rows.concat(reserveCards.map(c=>({...c,_w:"reserve"})));
+  if(q) rows=rows.filter(r=>(r.es||"").toLowerCase().includes(q)||(r.de||"").toLowerCase().includes(q));
+  const sort=listSortSelect.value;
+  rows.sort((a,b)=>{
+    if(sort==="wrongdesc") return (b.wrong||0)-(a.wrong||0);
+    if(sort==="alphaes") return (a.es||"").localeCompare(b.es||"");
+    if(sort==="alphade") return (a.de||"").localeCompare(b.de||"");
+    if(b.box!==a.box) return (b.box||0)-(a.box||0);
+    return (b.wrong||0)-(a.wrong||0);
+  });
+  const tb=cardsTable; tb.innerHTML="";
+  for(const r of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${esc(r.es)}</td><td>${esc(r.de)}</td><td>${r.box||"-"}${r._w==="reserve"?"*":""}</td><td>${r.wrong||0}</td><td>${r.lastSeen?new Date(r.lastSeen).toLocaleDateString():"-"}</td><td><button class="ghost" data-e>Edit</button><button class="danger" data-d>Del</button></td>`;
+    tr.querySelector("[data-e]").onclick=()=>{ const es=prompt("Spanisch:",r.es); if(es===null)return; const de=prompt("Deutsch:",r.de); if(de===null)return; if(!es.trim()||!de.trim())return;
+      const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);
+      if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){ alert("Karte mit dieser spanischen Seite existiert bereits."); return; }
+      r.es=es.trim(); r.de=de.trim(); saveData(); toast("Gespeichert ✅"); render(); };
+    tr.querySelector("[data-d]").onclick=()=>{ if(!confirm("Karte löschen?"))return; let arr=(r._w==="reserve")?reserveCards:activeCards; const i=arr.indexOf(r); if(i>=0)arr.splice(i,1); saveData(); toast("Gelöscht 🗑️"); render(); };
+    tb.appendChild(tr);
   }
 }
-function fitBothTiles(){
-  fitTileText(tileEs);
-  fitTileText(tileDe);
-}
+searchInput.oninput=buildTable; listSortSelect.onchange=buildTable; showReserveChk.onchange=buildTable;
 
-// === Rendern ===
-function render(){
-  if(mode==="lernen"){
-    const b1 = activeCards.filter(c=>c.box===1);
-    if(b1.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
-    const card = b1[learnIndex % b1.length];
-    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
-    tileDe.textContent = (direction==="a2b") ? card.sideB : card.sideA;
-  } else {
-    const bx = activeCards.filter(c=>c.box===currentTestBox);
-    if(bx.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
-    const idx = Math.floor(Math.random()*bx.length);
-    const card = bx[idx];
-    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
-    tileDe.textContent = "";
-  }
-  fitBothTiles();
-}
+/* Modus-Toggle */
+toggleModeBtn.onclick=()=>{ mode=(mode==="lernen")?"prüfen":"lernen"; editPanel.style.display="none"; combo=0; comboChip.style.display="none"; render(); };
 
-// === Sprache wechseln (NEU) ===
-let currentLang = localStorage.getItem(LS_LANG) || "de";
-langSelect.value = currentLang;
-function applyTranslations(){
-  const t = translations[currentLang];
-  document.getElementById("appTitle").textContent = t.title;
-  document.getElementById("toolsTitle").textContent = t.toolsTitle;
-  document.getElementById("deckLabel").textContent = t.deckLabel;
-  document.getElementById("langLabel").textContent = t.langLabel;
-  document.getElementById("addCardTitle").textContent = t.addCardTitle;
-  document.getElementById("addCardBtn").textContent = t.addCardBtn;
-  document.getElementById("exportBtn").textContent = t.exportBtn;
-  document.getElementById("statsTitle").textContent = t.statsTitle;
-  freshBtn.textContent = t.freshBtn;
-  updateLandInfo();
-}
-langSelect.addEventListener("change", ()=>{
-  currentLang = langSelect.value;
-  localStorage.setItem(LS_LANG, currentLang);
-  applyTranslations();
-  render();
-});
+/* Start */
+fillBox1InBatchesIfNeeded(); rebuildLearnOrder(); render();
 
-// === Event Listener ===
-saveLabelsBtn.addEventListener("click", ()=>{
-  const d = currentDeck(); if(!d) return;
-  d.sideALabel = sideALabelInput.value.trim() || "A";
-  d.sideBLabel = sideBLabelInput.value.trim() || "B";
-  saveData();
-  directionBadge.textContent = dirText();
-  applyLabelInputs();
-});
-
-toggleDirectionBtn.addEventListener("click", ()=>{
-  direction = (direction==="a2b") ? "b2a" : "a2b";
-  directionBadge.textContent = dirText();
-  render();
-});
-
-addCardBtn.addEventListener("click", ()=>{
-  const A = inputSideA.value.trim();
-  const B = inputSideB.value.trim();
-  if(!A || !B) return;
-  activeCards.push({sideA:A, sideB:B, box:1});
-  inputSideA.value=""; inputSideB.value="";
-  saveData();
-  render();
-  refreshCountsUI();
-});
-
-freshBtn.addEventListener("click", ()=>{
-  const take = Math.min(batchSizeFresh, reserveCards.length);
-  const added = reserveCards.splice(0, take).map(c=>({...c, box:1}));
-  activeCards.push(...added);
-  mode = "lernen"; // NEU: sofort auf Lernen schalten
-  learnIndex = activeCards.filter(c=>c.box===1).length - added.length;
-  saveData();
-  render();
-  refreshCountsUI();
-});
-
-landModeToggle.addEventListener("click", ()=>{
-  mode = (mode==="lernen") ? "prüfen" : "lernen";
-  render();
-  refreshCountsUI();
-});
-
-drawerToggle.addEventListener("click", ()=>{ drawer.classList.add("open"); updateLandInfo(); });
-drawerClose.addEventListener("click", ()=>{ drawer.classList.remove("open"); updateLandInfo(); });
-
-exportBtn.addEventListener("click", ()=>{
-  const data = {activeCards, reserveCards, learnedCards};
-  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "deck.json";
-  a.click();
-});
-importFile.addEventListener("change", e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    try{
-      const data = JSON.parse(ev.target.result);
-      activeCards = data.activeCards || [];
-      reserveCards = data.reserveCards || [];
-      learnedCards = data.learnedCards || [];
-      saveData(); render(); refreshCountsUI();
-    }catch(err){ alert("Fehler beim Import"); }
-  };
-  reader.readAsText(file);
-});
-
-deckSelect.addEventListener("change", ()=>{
-  currentDeckId = deckSelect.value;
-  activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
-  reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
-  learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
-  applyLabelInputs();
-  directionBadge.textContent = dirText();
-  saveData(); render(); refreshCountsUI();
-});
-
-window.addEventListener("resize", refreshCountsUI);
-window.addEventListener("orientationchange", ()=>setTimeout(refreshCountsUI,100));
-
-// === Init ===
-function init(){
-  deckSelect.innerHTML = "";
-  decks.forEach(d=>{
-    const opt = document.createElement("option");
-    opt.value = d.id; opt.textContent = d.name;
-    deckSelect.appendChild(opt);
-  });
-  deckSelect.value = currentDeckId;
-  applyLabelInputs();
-  directionBadge.textContent = dirText();
-  applyTranslations();
-  render();
-  refreshCountsUI();
-}
-init();
+/* PWA: Service Worker laden (Version-Bump via ?v=5) */
+if('serviceWorker' in navigator){ addEventListener('load', ()=>navigator.serviceWorker.register('./service-worker.js?v=5').catch(console.error)); }
 </script>
 </body>
 </html>
