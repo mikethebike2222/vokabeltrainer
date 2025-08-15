@@ -1,586 +1,500 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8" />
-<title>Vokabeltrainer – Leitner (frei, Box-weise, Mehrsprachig)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=10, user-scalable=yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1b3d8f">
-<link rel="manifest" href="manifest.webmanifest?v=9">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vokabeltrainer</title>
+
 <style>
-  :root{ --card-max-w:94vw; --card-max-h:62svh; --card-font:clamp(22px,6vw,36px); --tile-font:clamp(18px,4.8vw,30px); --radius:16px; }
-  @supports not (height:1svh){ :root{ --card-max-h:62vh; } }
-  *{ box-sizing:border-box; }
-  html,body{ height:100%; }
-  body{ margin:0; background:#f5f7fb; display:flex; flex-direction:column; align-items:center; padding:16px; -webkit-tap-highlight-color:transparent; }
-  body.learn-mode{ font-family:Georgia, "Times New Roman", serif; background:#f7f4ee; }
-  body.test-mode{ font-family:Arial, Helvetica, sans-serif; background:#f5f7fb; }
+/* === Grundstyles === */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f9fafb;
+  color: #111827;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+header {
+  position: relative;
+  padding: 8px;
+  background: #111827;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#appTitle { margin: 0; font-size: 1.2rem; }
 
-  header{ width:min(100%,1100px); display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:center; margin-bottom:8px; }
-  h1{ margin:0; font-size:20px; }
-  .badge{ padding:6px 10px; border-radius:999px; font-size:13px; }
-  #modeIndicator{ background:#e7eefc; color:#1b3d8f; } body.learn-mode #modeIndicator{ background:#efe6d5; color:#6f4d1d; }
-  #boxBadge{ background:#ffe9ee; color:#8f1b2b; }
-  #directionBadge{ background:#f1e8ff; color:#5a2ea6; }
+/* Querformat-Infofeld */
+#landInfo {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  background: #2563eb;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  z-index: 50;
+}
+@media (orientation:portrait){ #landInfo { display:none; } }
 
-  .gbar{ width:min(100%,1100px); display:flex; gap:10px; align-items:center; margin:6px 0 10px; flex-wrap:wrap; }
-  .chip{ background:#111827; color:#fff; border-radius:999px; padding:6px 10px; font-size:12px; display:flex; align-items:center; gap:6px; }
-  .chip span{ font-weight:700; }
+/* +7 Button */
+#freshBtn {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right));
+  top: calc(48px + env(safe-area-inset-top));
+  z-index: 50;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #10b981;
+  color: #fff;
+  font-size: 0.9rem;
+  display: none;
+}
+@media (orientation:portrait){ #freshBtn { display:none !important; } }
 
-  .progress{ width:min(100%,1100px); background:#eef2f7; border-radius:999px; height:10px; overflow:hidden; margin:4px 0 10px; }
-  .progress>div{ height:100%; width:0%; background:linear-gradient(90deg,#61c454,#1aa34a); transition:width .25s; }
-  .progress-label{ width:min(100%,1100px); display:flex; justify-content:space-between; font-size:12px; opacity:.8; }
+/* Toggle Button */
+#landModeToggle {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right));
+  top: calc(84px + env(safe-area-inset-top));
+  z-index: 50;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  border: 0;
+  font-size: 14px;
+  display: none;
+}
+@media (orientation:landscape){ #landModeToggle{ display:block; } }
+@media (orientation:portrait){ #landModeToggle{ display:none; } }
 
-  .stage{ width:min(100%,1100px); display:grid; grid-template-columns:1fr; gap:14px; }
+/* Main Area */
+#mainArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 
-  .pair{ width:min(var(--card-max-w),720px); display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 auto; }
-  .tile{ border-radius:var(--radius); box-shadow:0 8px 20px rgba(0,0,0,.08); padding:18px; min-height:calc(var(--card-max-h)/2.4); display:flex; align-items:center; justify-content:center; text-align:center; font-size:var(--tile-font); word-break:keep-all; overflow-wrap:anywhere; user-select:none; }
-  .tile.es{ background:#fff7e9; } .tile.de{ background:#eaf4ff; }
+/* Karteikarten */
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90%;
+  height: 40%;
+  margin: 10px auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  padding: 8px;
+  text-align: center;
+  font-size: 28px;
+  overflow-wrap: break-word;
+}
+#tileEs { background: #dbeafe; }
+#tileDe { background: #fef3c7; }
 
-  .controls{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:6px 0 8px; position:sticky; bottom:calc(10px + env(safe-area-inset-bottom,0px)); padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
-  button{ padding:14px 18px; font-size:16px; border:0; border-radius:12px; cursor:pointer; min-height:44px; min-width:44px; background:#1b3d8f; color:#fff; }
-  .secondary{ background:#6b7280; } .success{ background:#176427; } .danger{ background:#8f1b2b; } .ghost{ background:#e5e7eb; color:#111827; } .pill{ border-radius:999px; }
+/* Box Chart */
+#boxChart {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  width: 100%;
+  height: 100px;
+  background: #e5e7eb;
+}
+.bar {
+  flex: 1;
+  margin: 0 2px;
+  background: #3b82f6;
+  min-height: 5px;
+}
 
-  #testActions{ display:none; gap:10px; justify-content:center; }
-  #testActions button{ min-width:120px; }
+/* Drawer Panel */
+.drawer {
+  position: fixed;
+  top: 0; right: -100%;
+  width: 80%;
+  max-width: 320px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 6px rgba(0,0,0,0.2);
+  padding: 16px;
+  transition: right 0.3s;
+  overflow-y: auto;
+  z-index: 100;
+}
+.drawer.open { right: 0; }
+#drawerClose {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: none; border: none; font-size: 24px;
+}
+.row { display: flex; gap: 6px; margin-bottom: 8px; }
+.pill { border: none; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+input, select, button { font-size: 1rem; }
 
-  .drawer{ position:fixed; top:0; right:-380px; width:360px; height:100vh; background:#fff; box-shadow:-16px 0 32px rgba(0,0,0,.08); z-index:25; transition:right .25s; padding:14px; overflow:auto; }
-  .drawer.open{ right:0; }
-  .panel{ background:#fff; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); padding:12px; margin-bottom:12px; }
-  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  input[type="text"], select, textarea{ padding:11px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; min-height:42px; width:100%; font-size:16px; }
-  textarea{ min-height:90px; resize:vertical; }
+/* Pie Chart */
+#pieChart { display: block; margin: 16px auto; }
 
-  .table-wrap{ max-height:420px; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; }
-  table{ width:100%; border-collapse:collapse; font-size:14px; } th,td{ border-bottom:1px solid #eef2f7; padding:8px; text-align:left; }
-  thead th{ position:sticky; top:0; background:#f9fbff; z-index:1; }
-
-  .toast{ position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:#111827; color:#fff; padding:10px 14px; border-radius:999px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:60; }
-  .toast.show{ opacity:0.98; transform:translateX(-50%) translateY(-4px); }
-
-  @media (prefers-reduced-motion: reduce){ .progress>div, .toast{ transition:none; } }
-
-  /* Querformat */
-  @media (orientation:landscape){
-    header, .progress, .progress-label, .drawer-toggle, .controls.global, .drawer, .gbar { display:none !important; }
-    body { padding: 0; }
-    .pair{
-      width: calc(100vw - 4vw - env(safe-area-inset-left) - env(safe-area-inset-right));
-      height: calc(100vh - 4vw - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      max-width:none; max-height:none; margin: 2vw;
-    }
-    .tile{ font-size: clamp(24px, 5.5vw, 44px); }
-    #landscapeBadge{ display:flex; position:fixed; left: calc(12px + env(safe-area-inset-left)); bottom: calc(12px + env(safe-area-inset-bottom)); }
-    #landInfo{
-      display:flex; position:fixed;
-      right: calc(12px + env(safe-area-inset-right));
-      top: calc(12px + env(safe-area-inset-top));
-      background:#111827; color:#fff; border-radius:12px; padding:8px 10px; gap:10px; align-items:center;
-      box-shadow:0 8px 20px rgba(0,0,0,.18); z-index:50;
-    }
-  }
-  @media (max-width:520px){
-    header{ grid-template-columns: 1fr auto auto; gap:6px; }
-    .progress-label{ display:none; }
-    .drawer{ width:92vw; right:-92vw; }
-    .drawer.open{ right:0; }
-  }
-
-  #landscapeBadge{
-    display:none; width:42px; height:42px; border-radius:50%; background:#111827; color:#fff;
-    align-items:center; justify-content:center; font-size:13px; opacity:.85; z-index:40;
-  }
-
-  /* Diagramm (Portrait) */
-  #boxChartWrap{ display:block; width:min(100%,1100px); margin:4px auto 8px; padding:6px 8px; }
-  #boxChart{
-    display:flex; gap:6px; align-items:flex-end; height:74px; padding:6px; border-radius:10px;
-    background:#f1f5f9; box-shadow:inset 0 1px 0 rgba(0,0,0,.04);
-    position:relative; z-index:2;
-  }
-  .bar{ flex:1; background:#c7d2fe; position:relative; border-radius:6px 6px 0 0; cursor:pointer; display:flex;
-    align-items:flex-end; justify-content:center; min-height:28px; touch-action:manipulation; }
-  .bar span{ position:absolute; top:-18px; font-size:11px; opacity:.8; }
-  .bar label{ font-size:12px; padding-bottom:4px; }
-  .bar.active{ outline:2px solid #1b3d8f; outline-offset:2px; }
-
-  /* Editor-Hinweis (ausgegraut) */
-  .ghost-hint{ font-size:12px; opacity:.55; margin-top:6px; }
-
-  /* „+7“ Button – nur Querformat, unter #landInfo; nie über Drawer */
-  #freshBtn{
-    position:fixed; right: calc(12px + env(safe-area-inset-right)); top: calc(56px + env(safe-area-inset-top));
-    z-index:20; display:none; padding:10px 12px; font-size:15px;
-  }
-  @media (orientation:portrait){ #freshBtn{ display:none !important; } }
-  aside.drawer.open ~ #freshBtn{ display:none !important; }
+/* Drawer Toggle Button */
+#drawerToggle {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 200;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+}
 </style>
 </head>
-<body class="learn-mode">
+<body>
 
 <header>
-  <h1 data-i18n="title">Vokabeltrainer</h1>
-  <div id="modeIndicator" class="badge" data-i18n="mode.learn">Lernen</div>
-  <div id="directionBadge" class="badge">A → B</div>
-  <div id="boxBadge" class="badge">Box: –</div>
+  <h1 id="appTitle">Vokabeltrainer</h1>
+  <div id="landInfo"><span id="landInfoText">B1: 0</span></div>
+  <button id="freshBtn" class="pill">+7</button>
+  <button id="landModeToggle">⇆</button>
 </header>
 
-<!-- Gamification Topbar -->
-<div class="gbar">
-  <div class="chip">⭐ <span data-i18n="points">Punkte</span>: <span id="pointsChip">0</span></div>
-  <div class="chip">🎚️ <span data-i18n="level">Level</span>: <span id="levelChip">1</span></div>
-  <div class="chip">🔥 <span data-i18n="streak">Streak</span>: <span id="streakChip">0</span>d</div>
-  <div class="chip" id="comboChip" style="display:none;">⚡ Combo: <span id="comboVal">0</span></div>
-</div>
+<main id="mainArea">
+  <section id="learnPair">
+    <div id="tileEs" class="tile front"></div>
+    <div id="tileDe" class="tile back"></div>
+  </section>
+  <div id="boxChart"></div>
+</main>
 
-<div class="progress"><div id="progressBar"></div></div>
-<div class="progress-label">
-  <div id="progressText">Fortschritt: 0 / 0 (0%)</div>
-  <div id="completionText"></div>
-</div>
-
-<!-- Portrait-Controls -->
-<div class="controls global">
-  <button id="toggleModeBtn" class="secondary pill" data-i18n="btn.toggleMode">Lernen</button>
-  <button id="editBtn" class="pill" data-i18n="btn.edit">✏️ Bearbeiten</button>
-  <button id="drawerToggle" class="ghost pill" data-i18n="btn.tools">☰ Werkzeug</button>
-</div>
-
-<!-- Boxinfo (Querformat) -->
-<div id="landInfo" style="display:none;"><div id="landInfoText">B–: 0</div></div>
-
-<div class="stage">
-  <main>
-    <!-- LERNMODUS -->
-    <div id="learnPair" class="pair">
-      <div id="tileEs" class="tile es">—</div>
-      <div id="tileDe" class="tile de">—</div>
-    </div>
-
-    <!-- PRÜFMODUS -->
-    <div id="testPair" class="pair" style="display:none;" role="button" tabindex="0">
-      <div id="testLeft" class="tile es">—</div>
-      <div id="testRight" class="tile de">—</div>
-    </div>
-    <div id="testActions" class="controls">
-      <button id="btnWrong" class="danger" data-i18n="btn.wrong">❌ Falsch</button>
-      <button id="btnRight" class="success" data-i18n="btn.right">✅ Richtig</button>
-    </div>
-
-    <!-- Inline-Editor -->
-    <div id="editPanel" class="controls">
-      <textarea id="editEs" placeholder="Seite A – hier bearbeiten …"></textarea>
-      <textarea id="editDe" placeholder="Seite B – hier bearbeiten …"></textarea>
-      <div class="row" style="justify-content:center;">
-        <button id="saveEditBtn" class="success" data-i18n="btn.save">Speichern</button>
-        <button id="cancelEditBtn" class="secondary" data-i18n="btn.cancel">Abbrechen</button>
-      </div>
-    </div>
-
-    <!-- Meta -->
-    <div id="metaInfo" style="text-align:center; opacity:.75; font-size:13px;">
-      <span data-i18n="meta.box">Box</span>: <span id="metaBox">–</span> • <span data-i18n="meta.wrong">Falsch gezählt</span>: <span id="metaWrong">0</span>
-    </div>
-
-    <!-- Box-Diagramm -->
-    <div id="boxChartWrap">
-      <div id="boxChart" aria-label="Boxauswahl Diagramm"></div>
-      <div style="text-align:center; font-size:12px; opacity:.7;" id="chartHint" data-i18n="chart.hint">Tipp: Tippe auf eine Box, um sie zu prüfen.</div>
-    </div>
-  </main>
-</div>
-
-<!-- Querformat-Badge -->
-<div id="landscapeBadge">B1</div>
-
-<!-- Drawer / Werkzeuge -->
-<aside class="drawer" id="drawer">
-  <div class="row" style="justify-content:space-between;">
-    <h3 data-i18n="tools.title">Werkzeuge</h3>
-    <button id="drawerClose" class="ghost pill" data-i18n="btn.close">Schließen</button>
+<aside id="drawer" class="drawer">
+  <button id="drawerClose">×</button>
+  <h2>Werkzeuge</h2>
+  <div class="row">
+    <label for="deckSelect">Deck:</label>
+    <select id="deckSelect"></select>
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.decks">Decks</h3>
-    <div class="row">
-      <select id="deckSelect"></select>
-      <button id="deckAddBtn" class="pill">➕</button>
-      <button id="deckRenameBtn" class="pill secondary">✏️</button>
-      <button id="deckDeleteBtn" class="pill danger">🗑️</button>
-    </div>
+  <div class="row">
+    <input type="text" id="sideALabelInput" placeholder="A">
+    <input type="text" id="sideBLabelInput" placeholder="B">
+    <button id="saveLabelsBtn" class="pill">✔︎</button>
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.direction">Richtung</h3>
-    <div class="row"><button id="toggleDirectionBtn" class="pill">A → B</button></div>
-    <div class="row">
-      <input type="text" id="sideALabelInput" style="width:48%;" placeholder="A">
-      <input type="text" id="sideBLabelInput" style="width:48%;" placeholder="B">
-      <button id="saveLabelsBtn" class="pill">✔︎</button>
-    </div>
+  <div class="row">
+    <label for="langSelect">UI-Sprache:</label>
+    <select id="langSelect">
+      <option value="de">Deutsch</option>
+      <option value="en">English</option>
+      <option value="sv">Svenska</option>
+      <option value="es">Español</option>
+    </select>
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.lang">Sprache / Language</h3>
-    <div class="row"><select id="langSelect"><option value="de">Deutsch</option><option value="en">English</option><option value="sv">Svenska</option><option value="es">Español</option></select></div>
+  <div class="row">
+    <span id="directionBadge">A → B</span>
+    <button id="toggleDirectionBtn" class="pill">⇆</button>
   </div>
-
-  <div class="panel">
-    <h3>CSV Import (A,B)</h3>
-    <input type="file" id="csvFile" accept=".csv">
-    <div style="font-size:12px;opacity:.7">UTF-8 / Win-1252 / ISO-8859-1; Komma/Semikolon</div>
+  <h3>Neue Karte hinzufügen</h3>
+  <div class="row">
+    <input type="text" id="inputSideA" placeholder="A">
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.add">Neue Karte</h3>
-    <div class="row">
-      <input type="text" id="sideAInput" placeholder="A">
-      <input type="text" id="sideBInput" placeholder="B">
-      <button id="addCardBtn" data-i18n="btn.add">Hinzufügen</button>
-    </div>
-    <div id="newCardGhost" class="ghost-hint"></div>
+  <div class="row">
+    <input type="text" id="inputSideB" placeholder="B">
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.stats">Statistik</h3>
-    <table id="statsTable">
-      <tr><th data-i18n="tab.box">Box</th><th data-i18n="tab.cards">Karten</th><th data-i18n="tab.due">Fällig</th><th data-i18n="tab.next">Nächstes</th></tr>
-    </table>
-    <div style="margin-top:10px;">
-      <canvas id="pie" width="320" height="190"></canvas>
-      <div id="pieLegend" style="font-size:12px;opacity:.8;margin-top:6px;"></div>
-    </div>
-    <div id="heatWrap" style="margin-top:8px;font-size:12px;opacity:.8;"></div>
+  <button id="addCardBtn" class="pill">Karte hinzufügen</button>
+  <div class="row">
+    <input type="file" id="importFile" accept=".json">
+    <button id="exportBtn" class="pill">Exportieren</button>
   </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.all">Alle Karten</h3>
-    <div class="row" style="margin-bottom:8px;">
-      <input type="text" id="searchInput" placeholder="Suchen … (A/B)">
-      <select id="listSortSelect">
-        <option value="boxdesc">Box ↓</option>
-        <option value="wrongdesc">Schwierigkeit ↓</option>
-        <option value="alphaes">A – A–Z</option>
-        <option value="alphade">B – A–Z</option>
-      </select>
-      <label style="font-size:12px;"><input type="checkbox" id="showReserveChk"> <span data-i18n="tools.reserve">Reserve</span></label>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>A</th><th>B</th><th data-i18n="th.box">Box</th><th data-i18n="th.wrong">Falsch</th><th data-i18n="th.last">Zuletzt</th><th data-i18n="th.action">Aktion</th></tr></thead><tbody id="cardsTable"></tbody></table></div>
-  </div>
-
-  <div class="panel">
-    <h3 data-i18n="tools.manage">Verwalten</h3>
-    <div class="row">
-      <button id="deleteBtn" class="danger" data-i18n="btn.delete">Aktive Karte löschen</button>
-      <button id="resetProgressBtn" class="secondary" data-i18n="btn.resetProgress">Nur Fortschritt</button>
-      <button id="resetAllBtn" class="danger" data-i18n="btn.resetAll">Alles löschen</button>
-    </div>
-  </div>
-
-  <div class="panel" style="font-size:12px; opacity:.85">
-    <div>Neue Karten kommen über den Button „+7“ in 7er-Blöcken hinzu. Prüfmodus läuft Box-weise bis leer. Fälligkeiten werden im Prüfmodus ignoriert (freies Üben).</div>
-  </div>
+  <h3>Statistik</h3>
+  <canvas id="pieChart" width="200" height="200"></canvas>
 </aside>
 
-<div id="toast" class="toast"></div>
-
-<!-- „+7“ -->
-<button id="freshBtn" class="pill" aria-label="Neue Karten hinzufügen">+7</button>
-
+<button id="drawerToggle">☰</button>
 <script>
-/* ===== i18n (gekürzt – wie zuvor) ===== */
-const I18N={de:{title:"Vokabeltrainer","mode.learn":"Lernen","mode.test":"Prüfen",points:"Punkte",level:"Level",streak:"Streak","btn.toggleMode":"Lernen","btn.edit":"✏️ Bearbeiten","btn.tools":"☰ Werkzeug","btn.close":"Schließen","btn.wrong":"❌ Falsch","btn.right":"✅ Richtig","btn.save":"Speichern","btn.cancel":"Abbrechen","btn.add":"Hinzufügen","btn.delete":"Aktive Karte löschen","btn.resetProgress":"Nur Fortschritt","btn.resetAll":"Alles löschen","tools.title":"Werkzeuge","tools.decks":"Decks","tools.direction":"Richtung","tools.lang":"Sprache / Language","tools.add":"Neue Karte","tools.stats":"Statistik","tools.all":"Alle Karten","tools.reserve":"Reserve","tools.manage":"Verwalten","tab.box":"Box","tab.cards":"Karten","tab.due":"Fällig","tab.next":"Nächstes","th.box":"Box","th.wrong":"Falsch","th.last":"Zuletzt","th.action":"Aktion","chart.hint":"Tipp: Tippe auf eine Box, um sie zu prüfen.","toast.saved":"Gespeichert ✅","toast.deleted":"Gelöscht 🗑️","toast.added":"Zur Reserve hinzugefügt","toast.reset":"Fortschritt zurückgesetzt","toast.init":"Neu initialisiert"},
-en:{title:"Flashcard Trainer","mode.learn":"Learn","mode.test":"Test",points:"Points",level:"Level",streak:"Streak","btn.toggleMode":"Learn","btn.edit":"✏️ Edit","btn.tools":"☰ Tools","btn.close":"Close","btn.wrong":"❌ Wrong","btn.right":"✅ Right","btn.save":"Save","btn.cancel":"Cancel","btn.add":"Add","btn.delete":"Delete active card","btn.resetProgress":"Reset progress","btn.resetAll":"Reset all","tools.title":"Tools","tools.decks":"Decks","tools.direction":"Direction","tools.lang":"Language","tools.add":"New Card","tools.stats":"Statistics","tools.all":"All Cards","tools.reserve":"Reserve","tools.manage":"Manage","tab.box":"Box","tab.cards":"Cards","tab.due":"Due","tab.next":"Next","th.box":"Box","th.wrong":"Wrong","th.last":"Last","th.action":"Action","chart.hint":"Tip: Tap a box to drill it.","toast.saved":"Saved ✅","toast.deleted":"Deleted 🗑️","toast.added":"Added to reserve","toast.reset":"Progress reset","toast.init":"Reinitialized"},
-sv:{title:"Glosstränare","mode.learn":"Lära","mode.test":"Testa",points:"Poäng",level:"Nivå",streak:"Streak","btn.toggleMode":"Lära","btn.edit":"✏️ Redigera","btn.tools":"☰ Verktyg","btn.close":"Stäng","btn.wrong":"❌ Fel","btn.right":"✅ Rätt","btn.save":"Spara","btn.cancel":"Avbryt","btn.add":"Lägg till","btn.delete":"Ta bort aktivt kort","btn.resetProgress":"Återställ framsteg","btn.resetAll":"Återställ allt","tools.title":"Verktyg","tools.decks":"Leks","tools.direction":"Riktning","tools.lang":"Språk","tools.add":"Nytt kort","tools.stats":"Statistik","tools.all":"Alla kort","tools.reserve":"Reserv","tools.manage":"Hantera","tab.box":"Låda","tab.cards":"Kort","tab.due":"Förfallna","tab.next":"Nästa","th.box":"Låda","th.wrong":"Fel","th.last":"Senast","th.action":"Åtgärd","chart.hint":"Tips: Tryck på en låda för att öva den.","toast.saved":"Sparat ✅","toast.deleted":"Borttagen 🗑️","toast.added":"Tillagd i reserv","toast.reset":"Framsteg återställda","toast.init":"Initierad på nytt"},
-es:{title:"Entrenador de Vocabulario","mode.learn":"Aprender","mode.test":"Probar",points:"Puntos",level:"Nivel",streak:"Racha","btn.toggleMode":"Aprender","btn.edit":"✏️ Editar","btn.tools":"☰ Herramientas","btn.close":"Cerrar","btn.wrong":"❌ Incorrecto","btn.right":"✅ Correcto","btn.save":"Guardar","btn.cancel":"Cancelar","btn.add":"Añadir","btn.delete":"Borrar tarjeta activa","btn.resetProgress":"Solo progreso","btn.resetAll":"Borrar todo","tools.title":"Herramientas","tools.decks":"Mazos","tools.direction":"Dirección","tools.lang":"Idioma","tools.add":"Nueva tarjeta","tools.stats":"Estadísticas","tools.all":"Todas las tarjetas","tools.reserve":"Reserva","tools.manage":"Administrar","tab.box":"Caja","tab.cards":"Tarjetas","tab.due":"Vencen","tab.next":"Próx.","th.box":"Caja","th.wrong":"Fallos","th.last":"Última","th.action":"Acción","chart.hint":"Consejo: toca una caja para repasarla.","toast.saved":"Guardado ✅","toast.deleted":"Eliminado 🗑️","toast.added":"Añadido a reserva","toast.reset":"Progreso reiniciado","toast.init":"Reiniciado"}};
-let lang=localStorage.getItem("leitner_lang")||"de";
-function t(k){return(I18N[lang]&&I18N[lang][k])||(I18N.de[k]||k)}
-function applyI18n(){document.documentElement.lang=lang;document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t(el.getAttribute("data-i18n"))});document.getElementById("modeIndicator").textContent=(mode==="prüfen")?t("mode.test"):t("mode.learn");document.getElementById("toggleModeBtn").textContent=(mode==="prüfen")?t("mode.test"):t("mode.learn");}
+// === Konstanten & State ===
+const LS_DECKS = "leitnerDecks";
+const LS_CARDS = "leitnerCards";
+let decks = JSON.parse(localStorage.getItem(LS_DECKS) || "[]");
+if (decks.length === 0) {
+  const id = crypto.randomUUID();
+  decks = [{ id, name: "Default", sideALabel: "A", sideBLabel: "B" }];
+  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
+}
+let currentDeckId = localStorage.getItem("leitnerCurrentDeck") || decks[0].id;
+let activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
+let reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
+let learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
+let currentTestBox = 1;
+let mode = "lernen"; // frei-Üben default
+let learnIndex = 0;
+let direction = "a2b";
+let lastShownIds = [];
+let combo = 0;
+const batchSizeFresh = 7;
 
-/* === Setup === */
-function setVH(){const vh=innerHeight*0.01;document.documentElement.style.setProperty('--vh',vh+'px')}addEventListener('resize',setVH);setVH();
-const LS_DECKS="leitnerDecks";function uuid(){return Math.random().toString(36).slice(2,10)}function cryptoId(){return Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)}const todayKey=()=>new Date().toLocaleDateString('sv-SE');
+// === DOM Referenzen ===
+const deckSelect = document.getElementById("deckSelect");
+const sideALabelInput = document.getElementById("sideALabelInput");
+const sideBLabelInput = document.getElementById("sideBLabelInput");
+const saveLabelsBtn = document.getElementById("saveLabelsBtn");
+const langSelect = document.getElementById("langSelect");
+const directionBadge = document.getElementById("directionBadge");
+const toggleDirectionBtn = document.getElementById("toggleDirectionBtn");
+const inputSideA = document.getElementById("inputSideA");
+const inputSideB = document.getElementById("inputSideB");
+const addCardBtn = document.getElementById("addCardBtn");
+const importFile = document.getElementById("importFile");
+const exportBtn = document.getElementById("exportBtn");
+const landInfo = document.getElementById("landInfo");
+const landInfoText = document.getElementById("landInfoText");
+const freshBtn = document.getElementById("freshBtn");
+const landModeToggle = document.getElementById("landModeToggle");
+const tileEs = document.getElementById("tileEs");
+const tileDe = document.getElementById("tileDe");
+const boxChart = document.getElementById("boxChart");
+const drawer = document.getElementById("drawer");
+const drawerToggle = document.getElementById("drawerToggle");
+const drawerClose = document.getElementById("drawerClose");
+const pieChartCanvas = document.getElementById("pieChart");
 
-/* Decks mit Labels */
-let decks=JSON.parse(localStorage.getItem(LS_DECKS)||"[]");
-if(decks.length===0){const id=uuid();decks=[{id,name:"Default",sideALabel:"A",sideBLabel:"B"}];localStorage.setItem(LS_DECKS,JSON.stringify(decks))}
-let currentDeckId=localStorage.getItem("leitnerCurrentDeck")||decks[0].id;
-function deckKey(k){return`${k}_${currentDeckId}`}function currentDeck(){return decks.find(d=>d.id===currentDeckId)||decks[0]}
-
-/* Leitner-Config */
-const boxIntervals=[1,2,4,9,14]; // (egal bei freiem Prüfen)
-const batchSizeFresh=7; const noRepeatBuffer=4;
-
-/* Daten */
-let activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive"))||"[]");
-let reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve"))||"[]");
-let learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned"))||"[]");
-let mode="lernen";
-let direction=localStorage.getItem(deckKey("leitnerDirection"))||"a2b"; // a2b/b2a
-let currentTestBox=parseInt(localStorage.getItem(deckKey("currentTestBox"))||"1",10);
-
-/* Gamification */
-let points=parseInt(localStorage.getItem(deckKey("points"))||"0",10);
-let level=parseInt(localStorage.getItem(deckKey("level"))||"1",10);
-let streak=parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
-let lastActivityDate=localStorage.getItem(deckKey("lastActivityDate"))||null;
-let achievements=JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
-let dayCounts=JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}");
-let combo=0; let haptics=JSON.parse(localStorage.getItem(deckKey("haptics"))||"true");
-
-/* Zoom-Fix */
-const viewportMeta=document.querySelector('meta[name="viewport"]');const BASE_VP='width=device-width, initial-scale=1, viewport-fit=cover';
-function lockAndResetZoom(){if(!viewportMeta)return;viewportMeta.setAttribute('content',BASE_VP+', maximum-scale=1, user-scalable=no');scrollTo(0,0);setTimeout(()=>viewportMeta.setAttribute('content',BASE_VP+', maximum-scale=10, user-scalable=yes'),250)}
-function resetZoomIfNeeded(){try{lockAndResetZoom()}catch(e){}}
-addEventListener('orientationchange',()=>{setTimeout(()=>{resetZoomIfNeeded();updateLandInfo();render()},60)});addEventListener('resize',updateLandInfo);
-
-/* DOM */
-const body=document.body, modeIndicator=document.getElementById("modeIndicator"), directionBadge=document.getElementById("directionBadge"), boxBadge=document.getElementById("boxBadge");
-const progressBar=document.getElementById("progressBar"), progressText=document.getElementById("progressText");
-const tileEs=document.getElementById("tileEs"), tileDe=document.getElementById("tileDe"); const learnPair=document.getElementById("learnPair");
-const testPair=document.getElementById("testPair"), testLeft=document.getElementById("testLeft"), testRight=document.getElementById("testRight"), testActions=document.getElementById("testActions");
-const btnRight=document.getElementById("btnRight"), btnWrong=document.getElementById("btnWrong");
-const toggleModeBtn=document.getElementById("toggleModeBtn"), editBtn=document.getElementById("editBtn");
-const editPanel=document.getElementById("editPanel"), editEs=document.getElementById("editEs"), editDe=document.getElementById("editDe"), saveEditBtn=document.getElementById("saveEditBtn"), cancelEditBtn=document.getElementById("cancelEditBtn");
-const drawer=document.getElementById("drawer"), drawerToggle=document.getElementById("drawerToggle"), drawerClose=document.getElementById("drawerClose");
-const toggleDirectionBtn=document.getElementById("toggleDirectionBtn");
-const deckSelect=document.getElementById("deckSelect"), deckAddBtn=document.getElementById("deckAddBtn"), deckRenameBtn=document.getElementById("deckRenameBtn"), deckDeleteBtn=document.getElementById("deckDeleteBtn");
-const csvFileInput=document.getElementById("csvFile"), addCardBtn=document.getElementById("addCardBtn");
-const statsTable=document.getElementById("statsTable"); const resetProgressBtn=document.getElementById("resetProgressBtn"), resetAllBtn=document.getElementById("resetAllBtn"), deleteBtn=document.getElementById("deleteBtn");
-const cardsTable=document.getElementById("cardsTable"), searchInput=document.getElementById("searchInput"), listSortSelect=document.getElementById("listSortSelect"), showReserveChk=document.getElementById("showReserveChk");
-const metaBox=document.getElementById("metaBox"), metaWrong=document.getElementById("metaWrong"); const landscapeBadge=document.getElementById("landscapeBadge"); const toastEl=document.getElementById("toast");
-const pointsChip=document.getElementById("pointsChip"), levelChip=document.getElementById("levelChip"), streakChip=document.getElementById("streakChip"), comboChip=document.getElementById("comboChip"), comboVal=document.getElementById("comboVal");
-const landInfo=document.getElementById("landInfo"), landInfoText=document.getElementById("landInfoText"); const boxChart=document.getElementById("boxChart");
-const langSelect=document.getElementById("langSelect"); const freshBtn=document.getElementById("freshBtn");
-const sideALabelInput=document.getElementById("sideALabelInput"), sideBLabelInput=document.getElementById("sideBLabelInput"), saveLabelsBtn=document.getElementById("saveLabelsBtn");
-const sideAInput=document.getElementById("sideAInput"), sideBInput=document.getElementById("sideBInput"), newCardGhost=document.getElementById("newCardGhost");
-
-/* Utils */
-function saveData(){localStorage.setItem(deckKey("leitnerActive"),JSON.stringify(activeCards));localStorage.setItem(deckKey("leitnerReserve"),JSON.stringify(reserveCards));localStorage.setItem(deckKey("leitnerLearned"),JSON.stringify(learnedCards));localStorage.setItem(deckKey("leitnerDirection"),direction);localStorage.setItem(deckKey("points"),points);localStorage.setItem(deckKey("level"),level);localStorage.setItem(deckKey("streak"),streak);localStorage.setItem(deckKey("achievements"),JSON.stringify(achievements));localStorage.setItem(deckKey("lastActivityDate"),lastActivityDate||"");localStorage.setItem(deckKey("dayCounts"),JSON.stringify(dayCounts));localStorage.setItem(deckKey("currentTestBox"),String(currentTestBox));localStorage.setItem("leitner_lang",lang);localStorage.setItem(LS_DECKS,JSON.stringify(decks))}
-function saveDecks(){localStorage.setItem(LS_DECKS,JSON.stringify(decks));localStorage.setItem("leitnerCurrentDeck",currentDeckId)}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
-function daysBetween(a,b){return Math.floor((a-b)/(1000*60*60*24))}
-function toast(msg){toastEl.textContent=msg;toastEl.classList.add("show");setTimeout(()=>toastEl.classList.remove("show"),1400)}
-function vibrate(ms=15){try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
-function dirText(){const d=currentDeck();const A=d?.sideALabel||"A",B=d?.sideBLabel||"B";return(direction==="a2b")?`${A} → ${B}`:`${B} → ${A}`}
-function applyLabelInputs(){const d=currentDeck();sideALabelInput.value=d?.sideALabel||"A";sideBLabelInput.value=d?.sideBLabel||"B";sideAInput.placeholder=d?.sideALabel||"A";sideBInput.placeholder=d?.sideBLabel||"B"}
-
-/* Freies Prüfen: alle Karten der Box (Box1 nur 'introduced') */
-function getCardsForBox(box){
-  return activeCards.filter(c=>c.box===box && (box!==1 || c.introduced));
+// === Hilfsfunktionen ===
+function deckKey(k){ return `${k}_${currentDeckId}`; }
+function currentDeck(){ return decks.find(d=>d.id===currentDeckId) || decks[0]; }
+function saveData(){
+  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
+  localStorage.setItem("leitnerCurrentDeck", currentDeckId);
+  localStorage.setItem(deckKey("cards"), JSON.stringify(activeCards));
+  localStorage.setItem(deckKey("reserve"), JSON.stringify(reserveCards));
+  localStorage.setItem(deckKey("learned"), JSON.stringify(learnedCards));
+}
+function dirText(){
+  const d = currentDeck();
+  const A = d?.sideALabel || "A";
+  const B = d?.sideBLabel || "B";
+  return (direction==="a2b") ? `${A} → ${B}` : `${B} → ${A}`;
+}
+function applyLabelInputs(){
+  const d = currentDeck();
+  sideALabelInput.value = d?.sideALabel || "A";
+  sideBLabelInput.value = d?.sideBLabel || "B";
+}
+function refreshCountsUI(){
+  buildBoxChart();
+  drawPieChart();
+  updateLandInfo();
+}
+function updateLandInfo(){
+  const landscape = window.matchMedia("(orientation: landscape)").matches;
+  const countInBox = activeCards.filter(c=>c.box===currentTestBox).length;
+  landInfoText.textContent = `B${currentTestBox}: ${countInBox}`;
+  landInfo.style.display = landscape ? "flex" : "none";
+  const drawerIsOpen = drawer.classList.contains('open');
+  const showFresh = (currentTestBox===1) && landscape && !drawerIsOpen;
+  freshBtn.style.display = showFresh ? "block" : "none";
+  landModeToggle.textContent = (mode==="lernen") ? "→ Prüfen" : "→ Lernen";
 }
 
-/* Stats/Progress */
-function totals(){const total=activeCards.length+reserveCards.length+learnedCards.length;const learned=learnedCards.length;return{total,learned}}
-function updateProgress(){const {total,learned}=totals();const pct=total?Math.round((learned/total)*100):100;progressBar.style.width=pct+"%";progressText.textContent=`${t("tab.cards")}: ${learned} / ${total} (${pct}%)`}
-function updateStats(){
-  statsTable.innerHTML=`<tr><th>${t("tab.box")}</th><th>${t("tab.cards")}</th><th>${t("tab.due")}</th><th>${t("tab.next")}</th></tr>`;
-  const today=new Date();
-  for(let b=1;b<=5;b++){
-    const inBox=activeCards.filter(c=>c.box===b);
-    const due=inBox.length; // freie Prüfung: alles zählt
-    let next="-";
-    if(inBox.length){
-      const ds=inBox.map(c=>{ if(!c.lastSeen) return new Date(0); const d=new Date(c.lastSeen); d.setDate(d.getDate()+boxIntervals[b-1]); return d; });
-      const soonest=new Date(Math.min(...ds.map(d=>d.getTime()))); next=soonest.getTime()>0?soonest.toLocaleDateString('de-DE'):"heute";
-    }
-    statsTable.insertAdjacentHTML("beforeend",`<tr><td>${b}</td><td>${inBox.length}</td><td>${due}</td><td>${next}</td></tr>`);
+// === Diagramm & Statistik ===
+function buildBoxChart(){
+  boxChart.innerHTML = "";
+  const counts = [];
+  for(let i=1;i<=5;i++){
+    counts.push(activeCards.filter(c=>c.box===i).length);
   }
-  buildHeat(); buildBoxChart(); drawPie();
+  const max = Math.max(...counts,1);
+  counts.forEach((count,idx)=>{
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (count/max*100)+"%";
+    bar.title = `Box ${idx+1}: ${count}`;
+    bar.addEventListener('click', ()=>{
+      currentTestBox = idx+1;
+      mode = (currentTestBox===1) ? "lernen" : "prüfen";
+      saveData(); render(); refreshCountsUI();
+    });
+    boxChart.appendChild(bar);
+  });
 }
-function buildHeat(){const wrap=document.getElementById("heatWrap");const days=14,out=[];for(let i=days-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const key=d.toLocaleDateString('sv-SE');const n=dayCounts[key]||0;const shade=n===0?"#e5e7eb":n<5?"#bbf7d0":n<15?"#86efac":"#22c55e";out.push(`<span title="${key}: ${n}" style="display:inline-block;width:12px;height:12px;background:${shade};border-radius:3px;margin:2px;"></span>`)}wrap.innerHTML=`<div style="margin-top:6px;">Aktivität (14T): ${out.join("")}</div>`}
+function drawPieChart(){
+  const ctx = pieChartCanvas.getContext("2d");
+  ctx.clearRect(0,0,pieChartCanvas.width,pieChartCanvas.height);
+  const total = activeCards.length + reserveCards.length + learnedCards.length;
+  if(total===0) return;
+  const data = [
+    {label:"Aktiv", value: activeCards.length, color:"#3b82f6"},
+    {label:"Reserve", value: reserveCards.length, color:"#f59e0b"},
+    {label:"Gelernt", value: learnedCards.length, color:"#10b981"}
+  ];
+  let startAngle = -Math.PI/2;
+  data.forEach(seg=>{
+    const slice = (seg.value/total)*2*Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(100,100);
+    ctx.arc(100,100,100,startAngle,startAngle+slice);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    startAngle += slice;
+  });
+}
+// === Kartenanzeige & Schriftgröße ===
+function fitTileText(tile, minPx=16){
+  let size = 28;
+  const maxLoops = 20;
+  tile.style.fontSize = size + 'px';
+  tile.style.wordBreak = 'keep-all';
+  tile.style.hyphens = 'auto';
+  function overflows(){
+    return tile.scrollHeight > tile.clientHeight + 1 ||
+           tile.scrollWidth > tile.clientWidth + 1;
+  }
+  let loops=0;
+  while(overflows() && size>minPx && loops<maxLoops){
+    size -= 1;
+    tile.style.fontSize = size+'px';
+    loops++;
+  }
+}
+function fitBothTiles(){
+  fitTileText(tileEs);
+  fitTileText(tileDe);
+}
 
-/* Gamification */
-function addPointsFor(card,correct=true){if(!correct){combo=0;comboChip.style.display="none";return}const inc=Math.max(1,Math.min(5,card.box));points+=inc;combo+=1;if(combo>=2){comboChip.style.display="flex";comboVal.textContent=combo}const newLevel=Math.max(1,Math.floor(points/100)+1);if(newLevel>level){level=newLevel;toast(`🎚️ ${t("level")} ${level}`)}}
-function markActivity(){const today=todayKey();if(lastActivityDate!==today){if(lastActivityDate){const d1=new Date(lastActivityDate),d2=new Date(today);const diff=Math.round((d2-d1)/(1000*60*60*24));streak=(diff===1)?streak+1:1}else{streak=1}lastActivityDate=today}dayCounts[today]=(dayCounts[today]||0)+1;saveData();updateGamification()}
-function updateGamification(){pointsChip.textContent=points;levelChip.textContent=level;streakChip.textContent=streak}
-
-/* Render */
-let currentCard=null,testPhase="prompt";let lastShownIds=[];let learnIndex=0;
-function pickNextTestCardFromBox(box){let pool=getCardsForBox(box).filter(c=>!lastShownIds.includes(c.id));if(pool.length===0){lastShownIds=[];pool=getCardsForBox(box)}if(pool.length===0)return null;shuffle(pool);return pool[0]}
+// === Rendern ===
 function render(){
-  applyI18n(); updateGamification(); updateProgress(); updateStats();
-  body.classList.toggle("test-mode",mode==="prüfen"); body.classList.toggle("learn-mode",mode==="lernen");
-  directionBadge.textContent=dirText(); toggleDirectionBtn.textContent=dirText(); applyLabelInputs(); updateLandInfo();
-
   if(mode==="lernen"){
-    learnPair.style.display="grid"; testPair.style.display="none"; testActions.style.display="none";
-    const b1=activeCards.filter(c=>c.box===1);
-    if(b1.length===0){currentCard=null; tileEs.textContent="—"; tileDe.textContent="—"; updateMeta(); return;}
-    if(learnIndex<0) learnIndex=0; if(learnIndex>=b1.length) learnIndex=b1.length-1;
-    currentCard=b1[learnIndex];
-    tileEs.textContent=(direction==="a2b")?currentCard.es:currentCard.de;
-    tileDe.textContent=(direction==="a2b")?currentCard.de:currentCard.es;
-    if(!currentCard.introduced){currentCard.introduced=true; saveData();}
-    updateMeta();
-  }else{
-    learnPair.style.display="none"; testPair.style.display="grid"; testPhase="prompt"; testActions.style.display="none";
-    currentCard=pickNextTestCardFromBox(currentTestBox);
-    if(!currentCard){ testLeft.textContent="—"; testRight.textContent=""; updateMeta(); return; }
-    const src=(direction==="a2b")?currentCard.es:currentCard.de;
-    testLeft.textContent=src; testRight.textContent="—"; updateMeta();
+    const b1 = activeCards.filter(c=>c.box===1);
+    if(b1.length===0){ tileEs.textContent="Keine Karten"; tileDe.textContent=""; return; }
+    const card = b1[learnIndex % b1.length];
+    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
+    tileDe.textContent = (direction==="a2b") ? card.sideB : card.sideA;
+  } else {
+    const bx = activeCards.filter(c=>c.box===currentTestBox);
+    if(bx.length===0){ tileEs.textContent="Keine Karten"; tileDe.textContent=""; return; }
+    const idx = Math.floor(Math.random()*bx.length);
+    const card = bx[idx];
+    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
+    tileDe.textContent = "";
   }
+  fitBothTiles();
 }
-function updateMeta(){const b=currentCard?currentCard.box:"–"; metaBox.textContent=b; metaWrong.textContent=currentCard?(currentCard.wrong||0):0; boxBadge.textContent=`${t("tab.box")}: `+b; landscapeBadge.textContent="B"+b}
-function updateLandInfo(){const landscape=matchMedia("(orientation: landscape)").matches;const countInBox=activeCards.filter(c=>c.box===currentTestBox).length;landInfoText.textContent=`B${currentTestBox}: ${countInBox}`;landInfo.style.display=landscape?"flex":"none";const drawerIsOpen=drawer.classList.contains('open');const showFresh=(currentTestBox===1)&&landscape&&!drawerIsOpen;freshBtn.style.display=showFresh?"block":"none"}
 
-/* Interaktionen */
-testPair.addEventListener("click",revealAnswer);
-testPair.addEventListener("keydown",e=>{if((e.key===" "||e.key==="Enter")&&testPhase==="prompt"){e.preventDefault();revealAnswer()}})
-function revealAnswer(){if(mode!=="prüfen"||!currentCard||testPhase!=="prompt")return;const tgt=(direction==="a2b")?currentCard.de:currentCard.es;testRight.textContent=tgt;testPhase="answer";testActions.style.display="flex"}
-btnRight.addEventListener("click",()=>{if(mode!=="prüfen"||!currentCard)return;vibrate();addPointsFor(currentCard,true);markActivity();if(currentCard.box===5){const i=activeCards.indexOf(currentCard);if(i>=0)activeCards.splice(i,1);learnedCards.push({...currentCard,learnedAt:new Date().toISOString()})}else{currentCard.box=currentCard.box+1;currentCard.lastSeen=new Date().toISOString()}pushNoRepeat(currentCard.id);currentCard=null;saveData();nextInBoxOrDone()})
-btnWrong.addEventListener("click",()=>{if(mode!=="prüfen"||!currentCard)return;vibrate();addPointsFor(currentCard,false);markActivity();currentCard.box=Math.max(1,currentCard.box-1);currentCard.wrong=(currentCard.wrong||0)+1;currentCard.lastSeen=new Date().toISOString();pushNoRepeat(currentCard.id);currentCard=null;saveData();nextInBoxOrDone()})
-function pushNoRepeat(id){lastShownIds.unshift(id);if(lastShownIds.length>noRepeatBuffer)lastShownIds.pop()}
-function nextInBoxOrDone(){const next=pickNextTestCardFromBox(currentTestBox);if(next){currentCard=next;testPhase="prompt";testActions.style.display="none";const src=(direction==="a2b")?currentCard.es:currentCard.de;testLeft.textContent=src;testRight.textContent="—";updateMeta();updateLandInfo()}else{testLeft.textContent="—";testRight.textContent="";testActions.style.display="none";updateMeta();updateLandInfo();toast(`${t("tab.box")} ${currentTestBox} ✓`)}}
+// === Neue Karte hinzufügen ===
+addCardBtn.addEventListener("click", ()=>{
+  const A = inputSideA.value.trim();
+  const B = inputSideB.value.trim();
+  if(!A || !B) return;
+  activeCards.push({sideA:A, sideB:B, box:1});
+  inputSideA.value = ""; inputSideB.value = "";
+  saveData(); render(); refreshCountsUI();
+});
 
-/* Lernmodus – Swipe Gesten */
-(function(){const area=learnPair;let startX=0,startY=0,dx=0,dy=0,touching=false;const TX=45,TY=60;
-  function onStart(e){const t=e.touches?e.touches[0]:e;startX=t.clientX;startY=t.clientY;dx=dy=0;touching=true}
-  function onMove(e){if(!touching)return;const t=e.touches?e.touches[0]:e;dx=t.clientX-startX;dy=t.clientY-startY}
-  function onEnd(){if(!touching)return;touching=false;if(Math.abs(dy)>TY)return;if(dx<-TX){vibrate();learnIndex++;render();return}if(dx>TX){vibrate();learnIndex=Math.max(0,learnIndex-1);render();return}vibrate();learnIndex++;render()}
-  ;["touchstart","mousedown"].forEach(ev=>area.addEventListener(ev,onStart,{passive:true}));["touchmove","mousemove"].forEach(ev=>area.addEventListener(ev,onMove,{passive:true}));["touchend","mouseup","mouseleave"].forEach(ev=>area.addEventListener(ev,onEnd));
-})();
+// === Deck Labels speichern ===
+saveLabelsBtn.addEventListener("click", ()=>{
+  const d = currentDeck(); if(!d) return;
+  d.sideALabel = sideALabelInput.value.trim() || "A";
+  d.sideBLabel = sideBLabelInput.value.trim() || "B";
+  saveData();
+  directionBadge.textContent = dirText();
+  toggleDirectionBtn.textContent = dirText();
+  inputSideA.placeholder = d.sideALabel;
+  inputSideB.placeholder = d.sideBLabel;
+});
 
-/* Drawer */
-drawerToggle.onclick=()=>{drawer.classList.toggle("open");updateLandInfo()};
-drawerClose.onclick=()=>{drawer.classList.remove("open");updateLandInfo()};
+// === Richtung umschalten ===
+toggleDirectionBtn.addEventListener("click", ()=>{
+  direction = (direction==="a2b") ? "b2a" : "a2b";
+  directionBadge.textContent = dirText();
+  render();
+});
 
-/* Richtung */
-toggleDirectionBtn.onclick=()=>{direction=(direction==="a2b")?"b2a":"a2b";saveData();render()};
+// === +7 Button ===
+freshBtn.addEventListener("click", ()=>{
+  const take = Math.min(batchSizeFresh, reserveCards.length);
+  const added = reserveCards.splice(0, take).map(c=>({...c, box:1}));
+  activeCards.push(...added);
+  mode = "lernen";
+  learnIndex = activeCards.filter(c=>c.box===1).length - added.length;
+  saveData();
+  render(); refreshCountsUI();
+});
 
-/* Sprache */
-langSelect.value=lang; langSelect.addEventListener("change",()=>{lang=langSelect.value;saveData();applyI18n();render()});
+// === Modus Toggle im Querformat ===
+landModeToggle.addEventListener("click", ()=>{
+  mode = (mode==="lernen") ? "prüfen" : "lernen";
+  render(); refreshCountsUI();
+});
 
-/* Labels speichern */
-saveLabelsBtn.onclick=()=>{const d=currentDeck();if(!d)return;d.sideALabel=sideALabelInput.value.trim()||"A";d.sideBLabel=sideBLabelInput.value.trim()||"B";saveData();toast("Labels gespeichert");render()};
+// === Drawer Steuerung ===
+drawerToggle.addEventListener("click", ()=>{ drawer.classList.add("open"); updateLandInfo(); });
+drawerClose.addEventListener("click", ()=>{ drawer.classList.remove("open"); updateLandInfo(); });
 
-/* CSV Import (A,B) – nach Import Box1 mit bis zu 20 füllen */
-csvFileInput.addEventListener("change",(ev)=>{
-  const file=ev.target.files[0]; if(!file) return;
-  const rdr=new FileReader();
-  rdr.onload=e=>{
-    const buf=e.target.result;
-    const decs=[new TextDecoder("utf-8"),new TextDecoder("windows-1252"),new TextDecoder("iso-8859-1")];
-    let text="",used="utf-8";
-    for(const d of decs){const t=d.decode(buf);const bad=(t.match(/\uFFFD/g)||[]).length;if(bad===0){text=t;used=d.encoding||used;break}if(!text)text=t}
-    if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
-    const lines=text.split(/\r?\n/); let imported=0;
-    const norm=s=>(s||"").normalize('NFC').replace(/\s+/g,' ').trim();
-    for(let raw of lines){raw=raw.trim(); if(!raw)continue; const sep=(raw.includes(";")&&(!raw.includes(",")||raw.indexOf(";")<raw.indexOf(",")))?";":","; const parts=raw.split(sep); if(parts.length<2)continue;
-      let A=norm(parts[0].replace(/^"(.*)"$/,'$1')), B=norm(parts[1].replace(/^"(.*)"$/,'$1')); if(!A||!B)continue;
-      const exists=activeCards.some(c=>norm(c.es)===A)||reserveCards.some(c=>norm(c.es)===A)||learnedCards.some(c=>norm(c.es)===A);
-      if(!exists){reserveCards.push({id:cryptoId(),es:A,de:B,box:1,lastSeen:null,wrong:0,introduced:false}); imported++;}
-    }
-    /* Erstbefüllung Box1 bis 20 */
-    const b1cnt=activeCards.filter(c=>c.box===1).length;
-    const need=Math.max(0,20-b1cnt);
-    if(need>0){const take=Math.min(need,reserveCards.length);const add=reserveCards.splice(0,take);add.forEach(c=>{c.box=1;c.lastSeen=null;c.wrong=0;c.introduced=false;c.id=c.id||cryptoId()});activeCards.push(...add)}
-    saveData(); alert(`Import: ${imported} (${used})`); render();
+// === Import / Export ===
+exportBtn.addEventListener("click", ()=>{
+  const data = {activeCards, reserveCards, learnedCards};
+  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "deck.json";
+  a.click();
+});
+importFile.addEventListener("change", e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const data = JSON.parse(ev.target.result);
+      activeCards = data.activeCards || [];
+      reserveCards = data.reserveCards || [];
+      learnedCards = data.learnedCards || [];
+      saveData(); render(); refreshCountsUI();
+    }catch(err){ alert("Fehler beim Import"); }
   };
-  rdr.readAsArrayBuffer(file);
+  reader.readAsText(file);
 });
 
-/* Neue Karte – Eingabe + Ghost-Beispiel */
-function updateNewCardGhost(){
-  const all=[...activeCards,...reserveCards,...learnedCards];
-  if(all.length===0){ newCardGhost.textContent=""; return; }
-  const rnd=all[Math.floor(Math.random()*all.length)];
-  const A=rnd.es, B=rnd.de;
-  newCardGhost.textContent = (direction==="a2b") ? `Beispiel: ${A} → ${B}` : `Beispiel: ${B} → ${A}`;
-  const hide = sideAInput.value.trim()!=="" || sideBInput.value.trim()!=="";
-  newCardGhost.style.display = hide ? "none" : "block";
+// === Init ===
+function init(){
+  deckSelect.innerHTML = "";
+  decks.forEach(d=>{
+    const opt = document.createElement("option");
+    opt.value = d.id; opt.textContent = d.name;
+    deckSelect.appendChild(opt);
+  });
+  deckSelect.value = currentDeckId;
+  applyLabelInputs();
+  directionBadge.textContent = dirText();
+  inputSideA.placeholder = currentDeck().sideALabel;
+  inputSideB.placeholder = currentDeck().sideBLabel;
+  render(); refreshCountsUI();
 }
-["input","focus","blur"].forEach(ev=>{
-  sideAInput.addEventListener(ev,updateNewCardGhost);
-  sideBInput.addEventListener(ev,updateNewCardGhost);
+deckSelect.addEventListener("change", ()=>{
+  currentDeckId = deckSelect.value;
+  activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
+  reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
+  learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
+  applyLabelInputs();
+  directionBadge.textContent = dirText();
+  inputSideA.placeholder = currentDeck().sideALabel;
+  inputSideB.placeholder = currentDeck().sideBLabel;
+  saveData(); render(); refreshCountsUI();
 });
 
-addCardBtn.onclick=()=>{
-  const A=(sideAInput.value||"").trim(), B=(sideBInput.value||"").trim(); if(!A||!B){sideAInput.focus();return;}
-  const norm=s=>s.normalize('NFC').replace(/\s+/g,' ').trim(); const AN=norm(A), BN=norm(B);
-  const exists=activeCards.some(c=>norm(c.es)===AN)||reserveCards.some(c=>norm(c.es)===AN)||learnedCards.some(c=>norm(c.es)===AN);
-  if(exists){ alert("Schon vorhanden."); return; }
-  reserveCards.push({id:cryptoId(), es:AN, de:BN, box:1,lastSeen:null,wrong:0,introduced:false});
-  /* Wenn Box1 <20: sofort auffüllen */
-  const b1cnt=activeCards.filter(c=>c.box===1).length;
-  if(b1cnt<20){const add=reserveCards.splice(0,1); add.forEach(c=>{c.box=1;c.lastSeen=null;c.introduced=false}); activeCards.push(...add);}
-  sideAInput.value=""; sideBInput.value=""; saveData(); toast(t("toast.added")); updateNewCardGhost(); render();
-};
+window.addEventListener("resize", refreshCountsUI);
+window.addEventListener("orientationchange", ()=>setTimeout(refreshCountsUI,100));
 
-/* Löschen/Reset */
-deleteBtn.onclick=()=>{if(!currentCard)return;if(!confirm("Karte löschen?"))return;const i=activeCards.indexOf(currentCard);if(i>=0)activeCards.splice(i,1);else{const ir=reserveCards.indexOf(currentCard);if(ir>=0)reserveCards.splice(ir,1)}saveData();toast(t("toast.deleted"));render()};
-resetProgressBtn.onclick=()=>{if(!confirm("Nur Lernfortschritt zurücksetzen?"))return;activeCards=activeCards.map(c=>({...c,box:1,lastSeen:null,introduced:false}));saveData();toast(t("toast.reset"));render()};
-resetAllBtn.onclick=()=>{if(!confirm("Alle Daten dieser Übung löschen?"))return;["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","points","level","streak","achievements","lastActivityDate","dayCounts","haptics","currentTestBox"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));activeCards=[];reserveCards=[];learnedCards=[];direction="a2b";points=0;level=1;streak=0;achievements=[];lastActivityDate=null;dayCounts={};currentTestBox=1;saveData();toast(t("toast.init"));render()};
-
-/* Decks */
-function rebuildDeckSelect(){deckSelect.innerHTML="";decks.forEach(d=>{const o=document.createElement("option");o.value=d.id;o.textContent=d.name+(d.id===currentDeckId?" (aktiv)":"");deckSelect.appendChild(o)});deckSelect.value=currentDeckId}
-rebuildDeckSelect();
-deckSelect.onchange=()=>{currentDeckId=deckSelect.value;saveDecks();
-  activeCards=JSON.parse(localStorage.getItem(deckKey("leitnerActive"))||"[]");
-  reserveCards=JSON.parse(localStorage.getItem(deckKey("leitnerReserve"))||"[]");
-  learnedCards=JSON.parse(localStorage.getItem(deckKey("leitnerLearned"))||"[]");
-  direction=localStorage.getItem(deckKey("leitnerDirection"))||"a2b";
-  points=parseInt(localStorage.getItem(deckKey("points"))||"0",10);
-  level=parseInt(localStorage.getItem(deckKey("level"))||"1",10);
-  streak=parseInt(localStorage.getItem(deckKey("streak"))||"0",10);
-  achievements=JSON.parse(localStorage.getItem(deckKey("achievements"))||"[]");
-  lastActivityDate=localStorage.getItem(deckKey("lastActivityDate"))||null;
-  dayCounts=JSON.parse(localStorage.getItem(deckKey("dayCounts"))||"{}");
-  currentTestBox=parseInt(localStorage.getItem(deckKey("currentTestBox"))||"1",10);
-  applyLabelInputs(); updateNewCardGhost(); render();
-};
-deckAddBtn.onclick=()=>{const name=prompt("Name der neuen Übung:");if(!name)return;const id=uuid();decks.push({id,name,sideALabel:"A",sideBLabel:"B"});saveDecks();currentDeckId=id;rebuildDeckSelect();
-  activeCards=[];reserveCards=[];learnedCards=[];direction="a2b";points=0;level=1;streak=0;achievements=[];lastActivityDate=null;dayCounts={};currentTestBox=1;saveData();render();
-};
-deckRenameBtn.onclick=()=>{const deck=decks.find(d=>d.id===currentDeckId);if(!deck)return;const name=prompt("Neuer Name:",deck.name);if(!name)return;deck.name=name;saveDecks();rebuildDeckSelect()};
-deckDeleteBtn.onclick=()=>{if(decks.length<=1){alert("Mindestens eine Übung muss bleiben.");return}const deck=decks.find(d=>d.id===currentDeckId);if(!deck||!confirm(`„${deck.name}“ wirklich löschen?`))return;["leitnerActive","leitnerReserve","leitnerLearned","leitnerDirection","points","level","streak","achievements","lastActivityDate","dayCounts","haptics","currentTestBox"].forEach(k=>localStorage.removeItem(`${k}_${currentDeckId}`));decks=decks.filter(d=>d.id!==currentDeckId);currentDeckId=decks[0].id;saveDecks();rebuildDeckSelect();deckSelect.onchange()};
-
-/* Suche/Liste */
-function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function buildTable(){const q=searchInput.value.trim().toLowerCase();const incl=showReserveChk.checked;let rows=activeCards.map(c=>({...c,_w:"aktiv"}));if(incl)rows=rows.concat(reserveCards.map(c=>({...c,_w:"reserve"})));if(q)rows=rows.filter(r=>(r.es||"").toLowerCase().includes(q)||(r.de||"").toLowerCase().includes(q));const sort=listSortSelect.value;rows.sort((a,b)=>{if(sort==="wrongdesc")return(b.wrong||0)-(a.wrong||0);if(sort==="alphaes")return(a.es||"").localeCompare(b.es||"");if(sort==="alphade")return(a.de||"").localeCompare(b.de||"");if(b.box!==a.box)return(b.box||0)-(a.box||0);return(b.wrong||0)-(a.wrong||0)});const tb=cardsTable;tb.innerHTML="";for(const r of rows){const tr=document.createElement("tr");tr.innerHTML=`<td>${esc(r.es)}</td><td>${esc(r.de)}</td><td>${r.box||"-"}${r._w==="reserve"?"*":""}</td><td>${r.wrong||0}</td><td>${r.lastSeen?new Date(r.lastSeen).toLocaleDateString('de-DE'):"-"}</td><td><button class="ghost" data-e>Edit</button><button class="danger" data-d>Del</button></td>`;tr.querySelector("[data-e]").onclick=()=>{const es=prompt("Seite A:",r.es);if(es===null)return;const de=prompt("Seite B:",r.de);if(de===null)return;if(!es.trim()||!de.trim())return;const coll=(arr,es0,same)=>arr.some(c=>c!==same&&c.es===es0);if(coll(activeCards,es,r)||coll(reserveCards,es,r)||coll(learnedCards,es,r)){alert("Karte mit dieser A-Seite existiert bereits.");return}r.es=es.trim();r.de=de.trim();saveData();toast(t("toast.saved"));render()};tr.querySelector("[data-d]").onclick=()=>{if(!confirm("Karte löschen?"))return;let arr=(r._w==="reserve")?reserveCards:activeCards;const i=arr.indexOf(r);if(i>=0)arr.splice(i,1);saveData();toast(t("toast.deleted"));render()};tb.appendChild(tr)}}
-searchInput.oninput=buildTable; listSortSelect.onchange=buildTable; showReserveChk.onchange=buildTable;
-
-/* Diagramm – Tippen: bei Lernmodus + Box!=1 automatisch in Prüfmodus */
-function buildBoxChart(){const counts=[1,2,3,4,5].map(b=>activeCards.filter(c=>c.box===b).length);const max=Math.max(1,...counts);boxChart.innerHTML="";[1,2,3,4,5].forEach((b,i)=>{const bar=document.createElement("div");bar.className="bar"+(b===currentTestBox?" active":"");bar.style.height=(Math.max(6,Math.round(counts[i]/max*100)))+"%";bar.innerHTML=`<span>B${b}</span><label>${counts[i]}</label>`;bar.title=`Box ${b}: ${counts[i]}`;boxChart.appendChild(bar)})}
-boxChart.addEventListener('click',e=>{const el=e.target.closest('.bar');if(!el)return;const idx=Array.from(boxChart.children).indexOf(el);if(idx<0)return;const newBox=idx+1;currentTestBox=newBox;if(mode==="lernen"&&newBox!==1){mode="prüfen"}saveData();render()},{passive:true});
-boxChart.addEventListener('touchstart',e=>{const el=e.target.closest('.bar');if(!el)return;const idx=Array.from(boxChart.children).indexOf(el);if(idx<0)return;const newBox=idx+1;currentTestBox=newBox;if(mode==="lernen"&&newBox!==1){mode="prüfen"}saveData();render()},{passive:true});
-
-/* „+7“ */
-freshBtn.addEventListener("click",()=>{const take=Math.min(batchSizeFresh,reserveCards.length);const add=reserveCards.splice(0,take);add.forEach(c=>{c.box=1;c.lastSeen=null;c.wrong=c.wrong||0;c.introduced=false;c.id=c.id||cryptoId()});activeCards.push(...add);saveData();toast(`🆕 +${take}`);updateLandInfo();updateStats()});
-
-/* Mode-Toggle */
-toggleModeBtn.onclick=()=>{mode=(mode==="lernen")?"prüfen":"lernen";editPanel.style.display="none";combo=0;comboChip.style.display="none";lastShownIds=[];saveData();render()};
-
-/* Editor */
-function autoResize(el){el.style.height='auto';el.style.height=(el.scrollHeight+4)+'px'}
-editEs.addEventListener('input',()=>autoResize(editEs)); editDe.addEventListener('input',()=>autoResize(editDe));
-editBtn.addEventListener("click",()=>{if(!currentCard)return;editPanel.style.display=(editPanel.style.display==="none"||editPanel.style.display==="")?"flex":"none";const a=(direction==="a2b")?currentCard.es:currentCard.de;const b=(direction==="a2b")?currentCard.de:currentCard.es;editEs.value=a;editDe.value=b;autoResize(editEs);autoResize(editDe)});
-cancelEditBtn.addEventListener("click",()=>{editPanel.style.display="none";setTimeout(()=>resetZoomIfNeeded(),30)});
-saveEditBtn.addEventListener("click",()=>{if(!currentCard)return;const a=editEs.value.trim(),b=editDe.value.trim();if(!a||!b){alert("Bitte beide Felder ausfüllen.");return}const dup=activeCards.some(c=>c!==currentCard&&c.es===a)||reserveCards.some(c=>c.es===a)||learnedCards.some(c=>c.es===a);if(dup){alert("Karte mit dieser A-Seite existiert bereits.");return}if(direction==="a2b"){currentCard.es=a;currentCard.de=b}else{currentCard.es=b;currentCard.de=a}saveData();editPanel.style.display="none";toast(t("toast.saved"));render();setTimeout(()=>resetZoomIfNeeded(),30)});
-
-/* Piechart (Reserve, B1..B5, Gelernt) */
-function drawPie(){
-  const cvs=document.getElementById('pie'); if(!cvs) return; const ctx=cvs.getContext('2d');
-  const data=[reserveCards.length, ...[1,2,3,4,5].map(b=>activeCards.filter(c=>c.box===b).length), learnedCards.length];
-  const labels=["Reserve","B1","B2","B3","B4","B5","Gelernt"];
-  const colors=["#94a3b8","#a78bfa","#60a5fa","#34d399","#f59e0b","#ef4444","#10b981"];
-  const total=data.reduce((a,b)=>a+b,0)||1; let start=0; ctx.clearRect(0,0,cvs.width,cvs.height);
-  const cx=110, cy=95, r=80;
-  data.forEach((val,i)=>{const ang=val/total*2*Math.PI;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+ang);ctx.closePath();ctx.fillStyle=colors[i%colors.length];ctx.fill();start+=ang;});
-  // Legende
-  const leg=document.getElementById("pieLegend"); leg.innerHTML=labels.map((l,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;"><span style="display:inline-block;width:10px;height:10px;background:${colors[i%colors.length]};border-radius:2px;"></span>${l}: ${data[i]}</span>`).join("");
-}
-
-/* Start */
-applyI18n(); rebuildDeckSelect(); applyLabelInputs(); updateNewCardGhost(); render();
-
-/* PWA SW */
-if('serviceWorker' in navigator){ addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js?v=9').catch(console.error)) }
+init();
 </script>
 </body>
 </html>
-
