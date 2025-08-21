@@ -1,578 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vokabeltrainer</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stundenlohn-Stoppuhr</title>
 
-<style>
-/* === Grundstyles === */
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #f9fafb;
-  color: #111827;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-header {
-  position: relative;
-  padding: 8px;
-  background: #111827;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#appTitle { margin: 0; font-size: 1.2rem; }
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0a0a0b">
+  <link rel="icon" type="image/png" href="./icons/favicon-32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="./icons/favicon-16.png" sizes="16x16">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
 
-/* Querformat-Infofeld */
-#landInfo {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
-  background: #2563eb;
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  z-index: 50;
-}
-@media (orientation:portrait){ #landInfo { display:none; } }
-
-/* +7 Button */
-#freshBtn {
-  position: fixed;
-  right: calc(12px + env(safe-area-inset-right));
-  top: calc(48px + env(safe-area-inset-top));
-  z-index: 50;
-  padding: 4px 8px; /* NEU: kleiner gemacht */
-  border: none;
-  border-radius: 8px;
-  background: #10b981;
-  color: #fff;
-  font-size: 0.8rem;
-  display: none;
-}
-@media (orientation:portrait){ #freshBtn { display:none !important; } }
-
-/* Toggle Button */
-#landModeToggle {
-  position: fixed;
-  right: calc(12px + env(safe-area-inset-right));
-  top: calc(84px + env(safe-area-inset-top));
-  z-index: 50;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: #111827;
-  color: #fff;
-  border: 0;
-  font-size: 14px;
-  display: none;
-}
-@media (orientation:landscape){ #landModeToggle{ display:block; } }
-@media (orientation:portrait){ #landModeToggle{ display:none; } }
-
-/* Main Area */
-#mainArea {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Karteikarten */
-.tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 90%;
-  height: 40%;
-  margin: 10px auto;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  padding: 8px;
-  text-align: center;
-  font-size: 28px;
-  overflow-wrap: break-word;
-}
-#tileEs { background: #dbeafe; }
-#tileDe { background: #fef3c7; }
-
-/* Box Chart */
-#boxChart {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  width: 100%;
-  height: 100px;
-  background: #e5e7eb;
-}
-.bar {
-  flex: 1;
-  margin: 0 2px;
-  background: #3b82f6;
-  min-height: 5px;
-  cursor: pointer; /* NEU: Klickbar */
-}
-
-/* Drawer Panel */
-.drawer {
-  position: fixed;
-  top: 0; right: -100%;
-  width: 80%;
-  max-width: 320px;
-  height: 100%;
-  background: #fff;
-  box-shadow: -2px 0 6px rgba(0,0,0,0.2);
-  padding: 16px;
-  transition: right 0.3s;
-  overflow-y: auto;
-  z-index: 100;
-}
-.drawer.open { right: 0; }
-#drawerClose {
-  position: absolute;
-  top: 8px; right: 8px;
-  background: none; border: none; font-size: 24px;
-}
-.row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-.pill { border: none; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
-input, select, button { font-size: 1rem; }
-
-/* Vorschau-Placeholder (NEU) */
-.placeholder {
-  color: #9ca3af;
-  font-style: italic;
-}
-
-/* Pie Chart */
-#pieChart { display: block; margin: 16px auto; }
-
-/* Drawer Toggle Button */
-#drawerToggle {
-  position: fixed;
-  bottom: 12px;
-  right: 12px;
-  z-index: 200;
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
-}
-</style>
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <div class="app">
+    <div class="card" role="application" aria-label="Stundenlohn-Stoppuhr">
+      <header>
+        <h1>Stundenlohn-Stoppuhr</h1>
+        <div class="hint">Sekundengenau · Leertaste: Start/Pause · R: Reset</div>
+      </header>
 
-<header>
-  <h1 id="appTitle">Vokabeltrainer</h1>
-  <div id="landInfo"><span id="landInfoText">B1: 0</span></div>
-  <button id="freshBtn" class="pill">+7</button>
-  <button id="landModeToggle">⇆</button>
-</header>
+      <main>
+        <section>
+          <label for="time">Vergangene Zeit</label>
+          <div id="time" class="time" role="timer">00:00:00</div>
+        </section>
 
-<main id="mainArea">
-  <section id="learnPair">
-    <div id="tileEs" class="tile front"></div>
-    <div id="tileDe" class="tile back"></div>
-  </section>
-  <div id="boxChart"></div>
-</main>
+        <section>
+          <label for="earned">Verdienst</label>
+          <div class="earnings">
+            <div id="earned" class="money">€0,00</div>
+            <div class="rate">(<span id="ccy">EUR</span>/h: <span id="rateView">€25,00</span>)</div>
+          </div>
+        </section>
 
-<aside id="drawer" class="drawer">
-  <button id="drawerClose">×</button>
-  <h2 id="toolsTitle">Werkzeuge</h2>
-  <div class="row">
-    <label for="deckSelect" id="deckLabel">Deck:</label>
-    <select id="deckSelect"></select>
+        <section class="controls" aria-label="Einstellungen und Steuerung">
+          <div class="field">
+            <label for="rate">Stundenlohn</label>
+            <div class="input-icon">
+              <span>€</span>
+              <input id="rate" type="text" inputmode="decimal" placeholder="z. B. 25" autocomplete="off" spellcheck="false" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="currency">Währung</label>
+            <select id="currency" aria-label="Währung wählen">
+              <option>EUR</option>
+              <option>CHF</option>
+              <option>USD</option>
+              <option>GBP</option>
+              <option>SEK</option>
+              <option>NOK</option>
+              <option>DKK</option>
+              <option>PLN</option>
+              <option>CZK</option>
+              <option>HUF</option>
+              <option>RON</option>
+              <option>BGN</option>
+              <option>HRK</option>
+            </select>
+          </div>
+
+          <div class="buttons">
+            <button id="toggle" class="btn" type="button" aria-label="Start oder Pause">Start</button>
+            <button id="reset" class="btn ghost" type="button" aria-label="Zurücksetzen">Zurücksetzen</button>
+          </div>
+        </section>
+
+        <p class="foot">Alles läuft lokal im Browser. Tipp: <span class="kbd">Leertaste</span> startet/pausiert, <span class="kbd">R</span> setzt zurück.</p>
+      </main>
+    </div>
   </div>
-  <div class="row">
-    <input type="text" id="sideALabelInput" placeholder="A">
-    <input type="text" id="sideBLabelInput" placeholder="B">
-    <button id="saveLabelsBtn" class="pill">✔︎</button>
-  </div>
-  <div class="row">
-    <label for="langSelect" id="langLabel">UI-Sprache:</label>
-    <select id="langSelect">
-      <option value="de">Deutsch</option>
-      <option value="en">English</option>
-      <option value="sv">Svenska</option>
-      <option value="es">Español</option>
-    </select>
-  </div>
-  <div class="row">
-    <span id="directionBadge">A → B</span>
-    <button id="toggleDirectionBtn" class="pill">⇆</button>
-  </div>
-  <h3 id="addCardTitle">Neue Karte hinzufügen</h3>
-  <div class="row">
-    <input type="text" id="inputSideA" placeholder="A">
-  </div>
-  <div class="row">
-    <input type="text" id="inputSideB" placeholder="B">
-  </div>
-  <button id="addCardBtn" class="pill">Karte hinzufügen</button>
-  <div class="row">
-    <input type="file" id="importFile" accept=".json">
-    <button id="exportBtn" class="pill">Exportieren</button>
-  </div>
-  <h3 id="statsTitle">Statistik</h3>
-  <canvas id="pieChart" width="200" height="200"></canvas>
-</aside>
 
-<button id="drawerToggle">☰</button>
-
-<!-- JavaScript folgt in Teil 2 -->
-<script>
-// === Sprachdaten (NEU) ===
-const translations = {
-  de: {
-    title: "Vokabeltrainer",
-    toolsTitle: "Werkzeuge",
-    deckLabel: "Deck:",
-    langLabel: "UI-Sprache:",
-    addCardTitle: "Neue Karte hinzufügen",
-    addCardBtn: "Karte hinzufügen",
-    exportBtn: "Exportieren",
-    statsTitle: "Statistik",
-    freshBtn: "+7",
-    noCards: "Keine Karten",
-    modeLearn: "→ Prüfen",
-    modeTest: "→ Lernen"
-  },
-  en: {
-    title: "Vocabulary Trainer",
-    toolsTitle: "Tools",
-    deckLabel: "Deck:",
-    langLabel: "UI Language:",
-    addCardTitle: "Add New Card",
-    addCardBtn: "Add Card",
-    exportBtn: "Export",
-    statsTitle: "Statistics",
-    freshBtn: "+7",
-    noCards: "No cards",
-    modeLearn: "→ Test",
-    modeTest: "→ Learn"
-  },
-  sv: {
-    title: "Ordkortstränare",
-    toolsTitle: "Verktyg",
-    deckLabel: "Kortlek:",
-    langLabel: "UI-språk:",
-    addCardTitle: "Lägg till nytt kort",
-    addCardBtn: "Lägg till kort",
-    exportBtn: "Exportera",
-    statsTitle: "Statistik",
-    freshBtn: "+7",
-    noCards: "Inga kort",
-    modeLearn: "→ Testa",
-    modeTest: "→ Lära"
-  },
-  es: {
-    title: "Entrenador de Vocabulario",
-    toolsTitle: "Herramientas",
-    deckLabel: "Mazo:",
-    langLabel: "Idioma de UI:",
-    addCardTitle: "Añadir nueva tarjeta",
-    addCardBtn: "Añadir tarjeta",
-    exportBtn: "Exportar",
-    statsTitle: "Estadísticas",
-    freshBtn: "+7",
-    noCards: "Sin tarjetas",
-    modeLearn: "→ Probar",
-    modeTest: "→ Aprender"
-  }
-};
-
-// === Lokale Storage Keys & State ===
-const LS_DECKS = "leitnerDecks";
-const LS_LANG = "leitnerLang";
-let decks = JSON.parse(localStorage.getItem(LS_DECKS) || "[]");
-if (decks.length === 0) {
-  const id = crypto.randomUUID();
-  decks = [{ id, name: "Default", sideALabel: "A", sideBLabel: "B" }];
-  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
-}
-let currentDeckId = localStorage.getItem("leitnerCurrentDeck") || decks[0].id;
-let activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
-let reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
-let learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
-let currentTestBox = 1;
-let mode = "lernen";
-let learnIndex = 0;
-let direction = "a2b";
-const batchSizeFresh = 7;
-
-// === DOM Referenzen ===
-const deckSelect = document.getElementById("deckSelect");
-const sideALabelInput = document.getElementById("sideALabelInput");
-const sideBLabelInput = document.getElementById("sideBLabelInput");
-const saveLabelsBtn = document.getElementById("saveLabelsBtn");
-const langSelect = document.getElementById("langSelect");
-const directionBadge = document.getElementById("directionBadge");
-const toggleDirectionBtn = document.getElementById("toggleDirectionBtn");
-const inputSideA = document.getElementById("inputSideA");
-const inputSideB = document.getElementById("inputSideB");
-const addCardBtn = document.getElementById("addCardBtn");
-const importFile = document.getElementById("importFile");
-const exportBtn = document.getElementById("exportBtn");
-const landInfoText = document.getElementById("landInfoText");
-const freshBtn = document.getElementById("freshBtn");
-const landModeToggle = document.getElementById("landModeToggle");
-const tileEs = document.getElementById("tileEs");
-const tileDe = document.getElementById("tileDe");
-const boxChart = document.getElementById("boxChart");
-const drawer = document.getElementById("drawer");
-const drawerToggle = document.getElementById("drawerToggle");
-const drawerClose = document.getElementById("drawerClose");
-const pieChartCanvas = document.getElementById("pieChart");
-
-// === Hilfsfunktionen ===
-function deckKey(k){ return `${k}_${currentDeckId}`; }
-function currentDeck(){ return decks.find(d=>d.id===currentDeckId) || decks[0]; }
-function saveData(){
-  localStorage.setItem(LS_DECKS, JSON.stringify(decks));
-  localStorage.setItem("leitnerCurrentDeck", currentDeckId);
-  localStorage.setItem(deckKey("cards"), JSON.stringify(activeCards));
-  localStorage.setItem(deckKey("reserve"), JSON.stringify(reserveCards));
-  localStorage.setItem(deckKey("learned"), JSON.stringify(learnedCards));
-}
-function dirText(){
-  const d = currentDeck();
-  const A = d?.sideALabel || "A";
-  const B = d?.sideBLabel || "B";
-  return (direction==="a2b") ? `${A} → ${B}` : `${B} → ${A}`;
-}
-function applyLabelInputs(){
-  const d = currentDeck();
-  sideALabelInput.value = d?.sideALabel || "A";
-  sideBLabelInput.value = d?.sideBLabel || "B";
-  inputSideA.placeholder = d.sideALabel;
-  inputSideB.placeholder = d.sideBLabel;
-}
-function refreshCountsUI(){
-  buildBoxChart();
-  drawPieChart();
-  updateLandInfo();
-}
-function updateLandInfo(){
-  const landscape = window.matchMedia("(orientation: landscape)").matches;
-  const countInBox = activeCards.filter(c=>c.box===currentTestBox).length;
-  landInfoText.textContent = `B${currentTestBox}: ${countInBox}`;
-  const showFresh = (currentTestBox===1 && landscape && !drawer.classList.contains("open"));
-  freshBtn.style.display = showFresh ? "block" : "none";
-  landModeToggle.textContent = (mode==="lernen")
-    ? translations[currentLang].modeLearn
-    : translations[currentLang].modeTest;
-}
-
-// === Diagramme ===
-function buildBoxChart(){
-  boxChart.innerHTML = "";
-  const counts = [];
-  for(let i=1;i<=5;i++){
-    counts.push(activeCards.filter(c=>c.box===i).length);
-  }
-  const max = Math.max(...counts,1);
-  counts.forEach((count,idx)=>{
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    bar.style.height = (count/max*100)+"%";
-    bar.title = `Box ${idx+1}: ${count}`;
-    bar.addEventListener('click', ()=>{
-      currentTestBox = idx+1;
-      mode = (currentTestBox===1) ? "lernen" : "prüfen"; // NEU: Auto-Moduswechsel
-      render();
-      refreshCountsUI();
-    });
-    boxChart.appendChild(bar);
-  });
-}
-function drawPieChart(){
-  const ctx = pieChartCanvas.getContext("2d");
-  ctx.clearRect(0,0,pieChartCanvas.width,pieChartCanvas.height);
-  const total = activeCards.length + reserveCards.length + learnedCards.length;
-  if(total===0) return;
-  const data = [
-    {value: activeCards.length, color:"#3b82f6"},
-    {value: reserveCards.length, color:"#f59e0b"},
-    {value: learnedCards.length, color:"#10b981"}
-  ];
-  let start = -Math.PI/2;
-  data.forEach(seg=>{
-    const slice = (seg.value/total)*2*Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(100,100);
-    ctx.arc(100,100,100,start,start+slice);
-    ctx.closePath();
-    ctx.fillStyle = seg.color;
-    ctx.fill();
-    start += slice;
-  });
-}
-
-// === Schriftgröße anpassen ===
-function fitTileText(tile, minPx=16){
-  let size = 28;
-  tile.style.fontSize = size+'px';
-  while ((tile.scrollHeight > tile.clientHeight || tile.scrollWidth > tile.clientWidth) && size>minPx){
-    size--;
-    tile.style.fontSize = size+'px';
-  }
-}
-function fitBothTiles(){
-  fitTileText(tileEs);
-  fitTileText(tileDe);
-}
-
-// === Rendern ===
-function render(){
-  if(mode==="lernen"){
-    const b1 = activeCards.filter(c=>c.box===1);
-    if(b1.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
-    const card = b1[learnIndex % b1.length];
-    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
-    tileDe.textContent = (direction==="a2b") ? card.sideB : card.sideA;
-  } else {
-    const bx = activeCards.filter(c=>c.box===currentTestBox);
-    if(bx.length===0){ tileEs.textContent=translations[currentLang].noCards; tileDe.textContent=""; return; }
-    const idx = Math.floor(Math.random()*bx.length);
-    const card = bx[idx];
-    tileEs.textContent = (direction==="a2b") ? card.sideA : card.sideB;
-    tileDe.textContent = "";
-  }
-  fitBothTiles();
-}
-
-// === Sprache wechseln (NEU) ===
-let currentLang = localStorage.getItem(LS_LANG) || "de";
-langSelect.value = currentLang;
-function applyTranslations(){
-  const t = translations[currentLang];
-  document.getElementById("appTitle").textContent = t.title;
-  document.getElementById("toolsTitle").textContent = t.toolsTitle;
-  document.getElementById("deckLabel").textContent = t.deckLabel;
-  document.getElementById("langLabel").textContent = t.langLabel;
-  document.getElementById("addCardTitle").textContent = t.addCardTitle;
-  document.getElementById("addCardBtn").textContent = t.addCardBtn;
-  document.getElementById("exportBtn").textContent = t.exportBtn;
-  document.getElementById("statsTitle").textContent = t.statsTitle;
-  freshBtn.textContent = t.freshBtn;
-  updateLandInfo();
-}
-langSelect.addEventListener("change", ()=>{
-  currentLang = langSelect.value;
-  localStorage.setItem(LS_LANG, currentLang);
-  applyTranslations();
-  render();
-});
-
-// === Event Listener ===
-saveLabelsBtn.addEventListener("click", ()=>{
-  const d = currentDeck(); if(!d) return;
-  d.sideALabel = sideALabelInput.value.trim() || "A";
-  d.sideBLabel = sideBLabelInput.value.trim() || "B";
-  saveData();
-  directionBadge.textContent = dirText();
-  applyLabelInputs();
-});
-
-toggleDirectionBtn.addEventListener("click", ()=>{
-  direction = (direction==="a2b") ? "b2a" : "a2b";
-  directionBadge.textContent = dirText();
-  render();
-});
-
-addCardBtn.addEventListener("click", ()=>{
-  const A = inputSideA.value.trim();
-  const B = inputSideB.value.trim();
-  if(!A || !B) return;
-  activeCards.push({sideA:A, sideB:B, box:1});
-  inputSideA.value=""; inputSideB.value="";
-  saveData();
-  render();
-  refreshCountsUI();
-});
-
-freshBtn.addEventListener("click", ()=>{
-  const take = Math.min(batchSizeFresh, reserveCards.length);
-  const added = reserveCards.splice(0, take).map(c=>({...c, box:1}));
-  activeCards.push(...added);
-  mode = "lernen"; // NEU: sofort auf Lernen schalten
-  learnIndex = activeCards.filter(c=>c.box===1).length - added.length;
-  saveData();
-  render();
-  refreshCountsUI();
-});
-
-landModeToggle.addEventListener("click", ()=>{
-  mode = (mode==="lernen") ? "prüfen" : "lernen";
-  render();
-  refreshCountsUI();
-});
-
-drawerToggle.addEventListener("click", ()=>{ drawer.classList.add("open"); updateLandInfo(); });
-drawerClose.addEventListener("click", ()=>{ drawer.classList.remove("open"); updateLandInfo(); });
-
-exportBtn.addEventListener("click", ()=>{
-  const data = {activeCards, reserveCards, learnedCards};
-  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "deck.json";
-  a.click();
-});
-importFile.addEventListener("change", e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ev=>{
-    try{
-      const data = JSON.parse(ev.target.result);
-      activeCards = data.activeCards || [];
-      reserveCards = data.reserveCards || [];
-      learnedCards = data.learnedCards || [];
-      saveData(); render(); refreshCountsUI();
-    }catch(err){ alert("Fehler beim Import"); }
-  };
-  reader.readAsText(file);
-});
-
-deckSelect.addEventListener("change", ()=>{
-  currentDeckId = deckSelect.value;
-  activeCards = JSON.parse(localStorage.getItem(deckKey("cards")) || "[]");
-  reserveCards = JSON.parse(localStorage.getItem(deckKey("reserve")) || "[]");
-  learnedCards = JSON.parse(localStorage.getItem(deckKey("learned")) || "[]");
-  applyLabelInputs();
-  directionBadge.textContent = dirText();
-  saveData(); render(); refreshCountsUI();
-});
-
-window.addEventListener("resize", refreshCountsUI);
-window.addEventListener("orientationchange", ()=>setTimeout(refreshCountsUI,100));
-
-// === Init ===
-function init(){
-  deckSelect.innerHTML = "";
-  decks.forEach(d=>{
-    const opt = document.createElement("option");
-    opt.value = d.id; opt.textContent = d.name;
-    deckSelect.appendChild(opt);
-  });
-  deckSelect.value = currentDeckId;
-  applyLabelInputs();
-  directionBadge.textContent = dirText();
-  applyTranslations();
-  render();
-  refreshCountsUI();
-}
-init();
-</script>
+  <script src="./app.js"></script>
+  <script>
+    // Service Worker Registrierung (optional, aber empfohlen für PWA)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+  </script>
 </body>
 </html>
